@@ -1,0 +1,19 @@
+services:
+  postgres-test:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      POSTGRES_DB: quant_test
+      POSTGRES_USER: quant_test
+      POSTGRES_PASSWORD: quant_test_password
+    ports:
+      - target: 5432
+        host_ip: 127.0.0.1
+        protocol: tcp
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quant_test -d quant_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

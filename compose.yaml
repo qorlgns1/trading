@@ -1,0 +1,151 @@
+name: quant-trend-lab
+
+x-api-environment: &api-environment
+  APP_MODE: public_demo
+  APP_ENV: production
+  DATABASE_URL: postgresql+asyncpg://quant:${POSTGRES_PASSWORD}@postgres:5432/quant
+  VALKEY_URL: redis://valkey:6379/0
+  ARTIFACT_BACKEND: ${ARTIFACT_BACKEND:-oci}
+  ARTIFACT_ROOT: /app/artifacts
+  RATE_LIMIT_SECRET: ${RATE_LIMIT_SECRET}
+  BACKTEST_EAGER: "false"
+  AUTO_CREATE_SCHEMA: "false"
+  TRUST_PROXY: "true"
+  OCI_BUCKET_NAME: ${OCI_BUCKET_NAME:-}
+  OCI_NAMESPACE: ${OCI_NAMESPACE:-}
+  OCI_REGION: ${OCI_REGION:-ap-seoul-1}
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["production"]
+    restart: unless-stopped
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks: [frontend]
+
+  web:
+    image: ${WEB_IMAGE:-quant-trend-lab-web:local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [frontend]
+
+  api:
+    image: ${API_IMAGE:-quant-trend-lab-api:local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment: *api-environment
+    volumes:
+      - artifacts:/app/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks: [frontend, backend]
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+
+  worker:
+    image: ${API_IMAGE:-quant-trend-lab-api:local}
+    restart: unless-stopped
+    command: ["celery", "-A", "quant_api.worker:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
+    environment: *api-environment
+    volumes:
+      - artifacts:/app/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    networks: [frontend, backend]
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+  migrate:
+    image: ${API_IMAGE:-quant-trend-lab-api:local}
+    profiles: ["tools"]
+    command: ["alembic", "-c", "apps/api/alembic.ini", "upgrade", "head"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quant
+      POSTGRES_USER: quant
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quant -d quant"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+
+volumes:
+  postgres_data:
+  artifacts:
+  caddy_data:
+  caddy_config:
+
+networks:
+  frontend:
+  backend:
+    internal: true

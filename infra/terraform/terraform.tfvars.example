@@ -1,0 +1,8 @@
+tenancy_ocid             = "ocid1.tenancy.oc1..replace"
+compartment_ocid         = "ocid1.compartment.oc1..replace"
+instance_ocid            = "ocid1.instance.oc1.ap-seoul-1.replace"
+object_storage_namespace = "replace"
+bucket_name              = "replace-existing-private-bucket"
+vcn_ocid                 = "ocid1.vcn.oc1.ap-seoul-1.replace"
+management_cidr          = "203.0.113.10/32"
+notification_email       = "owner@example.com"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Quant Trend Lab retention cleanup
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 Asia/Seoul
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

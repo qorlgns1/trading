@@ -1,0 +1,56 @@
+[tool.uv.workspace]
+members = ["apps/api", "packages/quant-core"]
+
+[tool.uv.sources]
+quant-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "hypothesis==6.140.2",
+  "mypy==1.18.2",
+  "pytest==8.4.2",
+  "pytest-asyncio==1.2.0",
+  "pytest-cov==7.0.0",
+  "ruff==0.13.3",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["apps/api/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = ["packages/quant-core/src", "apps/api/src"]
+exclude = ["apps/api/alembic"]
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "exchange_calendars.*", "oci.*", "yfinance.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+testpaths = ["packages/quant-core/tests", "apps/api/tests"]
+asyncio_mode = "auto"
+markers = [
+  "integration: requires the disposable Docker Compose PostgreSQL service",
+]
+filterwarnings = [
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["quant_core", "quant_api"]
+omit = ["*/quant_api/cli.py", "*/quant_api/worker.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80

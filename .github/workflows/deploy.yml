@@ -1,0 +1,38 @@
+name: Deploy OCI
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: [self-hosted, linux, arm64, quant-trend-prod]
+    environment: production
+    timeout-minutes: 20
+    concurrency:
+      group: quant-trend-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Install release files
+        run: |
+          sudo install -d -o "$USER" -g "$USER" /opt/quant-trend-lab
+          rsync -a --delete \
+            --exclude '.env' \
+            --exclude 'releases/' \
+            compose.yaml infra scripts /opt/quant-trend-lab/
+          chmod +x /opt/quant-trend-lab/scripts/*.sh
+      - name: Deploy and verify
+        env:
+          OCIR_REGISTRY: ${{ vars.OCIR_REGISTRY }}
+          OCI_NAMESPACE: ${{ vars.OCI_NAMESPACE }}
+        run: /opt/quant-trend-lab/scripts/deploy.sh "${{ github.event.workflow_run.head_sha }}"

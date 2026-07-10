@@ -1,0 +1,7 @@
+Symbol|Security Name|Market Category|Test Issue|Financial Status|Round Lot Size|ETF|NextShares
+AAPL|Apple Inc. - Common Stock|Q|N|N|100|N|N
+QQQ|Invesco QQQ Trust, Series 1|Q|N|N|100|Y|N
+PSQ|ProShares Short QQQ ETF|Q|N|N|100|Y|N
+TEST|Test Security - Common Stock|Q|Y|N|100|N|N
+SPCX|Example Acquisition Corp. - Class A Common Stock|Q|N|N|100|N|N
+File Creation Time: 0710202618:00|||||||

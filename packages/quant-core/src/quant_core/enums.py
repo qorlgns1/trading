@@ -1,0 +1,109 @@
+from enum import StrEnum
+
+
+class PeerGroup(StrEnum):
+    US_STOCK = "US_STOCK"
+    KR_KOSPI = "KR_KOSPI"
+    KR_KOSDAQ = "KR_KOSDAQ"
+    US_EQUITY_ETF = "US_EQUITY_ETF"
+    KR_DOMESTIC_EQUITY_ETF = "KR_DOMESTIC_EQUITY_ETF"
+    KR_OVERSEAS_EQUITY_ETF = "KR_OVERSEAS_EQUITY_ETF"
+
+
+class CandidateState(StrEnum):
+    STRONG_CANDIDATE = "STRONG_CANDIDATE"
+    CANDIDATE = "CANDIDATE"
+    WATCH = "WATCH"
+    WEAK = "WEAK"
+    EXCLUDED = "EXCLUDED"
+    NOT_AVAILABLE = "NOT_AVAILABLE"
+
+
+class ExclusionCode(StrEnum):
+    INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
+    MISSING_DATA = "MISSING_DATA"
+    INSUFFICIENT_PEERS = "INSUFFICIENT_PEERS"
+    INSTRUMENT_NOT_SUPPORTED = "INSTRUMENT_NOT_SUPPORTED"
+    SUSPENDED = "SUSPENDED"
+    BELOW_SMA200 = "BELOW_SMA200"
+    NEGATIVE_6M_MOMENTUM = "NEGATIVE_6M_MOMENTUM"
+    LOW_ABSOLUTE_LIQUIDITY = "LOW_ABSOLUTE_LIQUIDITY"
+    ORDER_TOO_LARGE = "ORDER_TOO_LARGE"
+
+
+class WarningCode(StrEnum):
+    WEAK_MARKET = "WEAK_MARKET"
+    BELOW_SMA50 = "BELOW_SMA50"
+    HIGH_VOLATILITY = "HIGH_VOLATILITY"
+    SHORT_TERM_OVERHEAT = "SHORT_TERM_OVERHEAT"
+    FX_EXPOSURE = "FX_EXPOSURE"
+    STALE_DATA = "STALE_DATA"
+
+
+class RunStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
+class DataSource(StrEnum):
+    SYNTHETIC = "SYNTHETIC"
+    YFINANCE = "YFINANCE"
+
+
+class DataStatus(StrEnum):
+    READY = "READY"
+    INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
+    UNSUPPORTED = "UNSUPPORTED"
+    DOWNLOAD_FAILED = "DOWNLOAD_FAILED"
+    STALE = "STALE"
+    INVALID_DATA = "INVALID_DATA"
+
+
+class QualityStatus(StrEnum):
+    PASS = "PASS"
+    WARN = "WARN"
+    FAIL = "FAIL"
+
+
+class QualitySeverity(StrEnum):
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+
+
+class QualityResolution(StrEnum):
+    BLOCKED = "BLOCKED"
+    QUARANTINED = "QUARANTINED"
+    REPAIRED = "REPAIRED"
+    WARN_ONLY = "WARN_ONLY"
+
+
+class SnapshotState(StrEnum):
+    MISSING = "MISSING"
+    PREPARING = "PREPARING"
+    READY = "READY"
+    STALE = "STALE"
+
+
+class SyncTrigger(StrEnum):
+    STARTUP = "STARTUP"
+    SCHEDULED = "SCHEDULED"
+    MANUAL = "MANUAL"
+
+
+class Sleeve(StrEnum):
+    US_STOCK = "US_STOCK"
+    KR_STOCK = "KR_STOCK"
+    US_ETF = "US_ETF"
+    KR_ETF = "KR_ETF"
+
+
+PEER_GROUP_LABELS: dict[PeerGroup, str] = {
+    PeerGroup.US_STOCK: "미국 주식",
+    PeerGroup.KR_KOSPI: "KOSPI 주식",
+    PeerGroup.KR_KOSDAQ: "KOSDAQ 주식",
+    PeerGroup.US_EQUITY_ETF: "미국 주식형 ETF",
+    PeerGroup.KR_DOMESTIC_EQUITY_ETF: "국내 주식형 ETF",
+    PeerGroup.KR_OVERSEAS_EQUITY_ETF: "해외 주식형 한국 ETF",
+}

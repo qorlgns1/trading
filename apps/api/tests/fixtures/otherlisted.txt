@@ -1,0 +1,6 @@
+ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
+BRK.B|Berkshire Hathaway Inc. Class B Common Stock|N|BRK.B|N|100|N|BRK.B
+SPY|SPDR S&P 500 ETF Trust|P|SPY|Y|100|N|SPY
+TLT|iShares 20+ Year Treasury Bond ETF|P|TLT|Y|100|N|TLT
+MYST|Example Allocation Fund|P|MYST|Y|100|N|MYST
+File Creation Time: 0710202618:00|||||||

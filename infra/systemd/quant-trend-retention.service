@@ -1,0 +1,9 @@
+[Unit]
+Description=Clean expired Quant Trend Lab run artifacts and backup objects
+After=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+EnvironmentFile=/opt/quant-trend-lab/.env
+ExecStart=/opt/quant-trend-lab/scripts/cleanup-retention.sh

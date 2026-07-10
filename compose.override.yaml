@@ -1,0 +1,17 @@
+services:
+  web:
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+  api:
+    environment:
+      APP_ENV: development
+      ARTIFACT_BACKEND: local
+      BACKTEST_EAGER: "true"
+      AUTO_CREATE_SCHEMA: "true"
+      TRUST_PROXY: "false"
+    ports:
+      - "${API_PORT:-8000}:8000"
+  worker:
+    environment:
+      APP_ENV: development
+      ARTIFACT_BACKEND: local

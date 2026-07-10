@@ -1,0 +1,18 @@
+[Unit]
+Description=Quant Trend Lab Docker Compose stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/quant-trend-lab
+EnvironmentFile=/opt/quant-trend-lab/.env
+EnvironmentFile=/opt/quant-trend-lab/releases/current.env
+ExecStart=/usr/bin/docker compose -f compose.yaml --profile production up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f compose.yaml down
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
