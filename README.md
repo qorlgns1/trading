@@ -11,8 +11,9 @@ Quant Trend Lab is an explainable trend-screening product for US and Korean stoc
 - Resumable ten-year local collection with exchange-universe snapshots and daily catch-up
 - Versioned data-quality gates, full-history repair, per-asset quarantine, and score traces
 - Server-side search, filtering, pagination, data-health states, and 65/60 candidate hysteresis
-- Ten-year asynchronous reference backtest with adjustable four-sleeve allocation
-- Read-only paper portfolio with integer shares, KRW/USD cash, and explicit transaction costs
+- Public synthetic backtests plus local current-universe historical replay with reconciled cause analysis and an explicit survivorship-bias warning
+- Daily candidate-change history and a forward-only paper ledger that starts after account creation
+- Integer shares, separate KRW/USD cash, market-specific next-session fills, and explicit transaction costs
 - HTML, CSV, JSON, and Parquet result artifacts
 - Public guest limits: five new runs per IP per hour and one concurrent run
 
@@ -86,7 +87,7 @@ The local application snapshots the current US directory from Nasdaq Trader. Kor
 
 The API catches up on startup, polls for completed Korean and US trading sessions, and resumes completed download batches after interruption. Before activation it repairs provider-detected price errors, validates raw bars and score invariants, and quarantines assets whose errors remain. Downloaded data and real-data results remain under `data/research`, are excluded from Git, and are never exposed by the public OCI deployment. See [local real-data operations](docs/local-research.md).
 
-Current-listed-security history is suitable for screening, not a point-in-time backtest. Delisted historical securities are absent, so real-data backtests remain disabled until a survivorship-aware universe is available.
+Current-listed-security history is not a point-in-time universe. Local mode therefore exposes its ten-year result only as a **current-universe historical simulation with survivorship bias**, never as an official performance claim. The forward portfolio is stored separately and begins with the first completed weekly review after the user creates an account. See [historical replay and forward ledger](docs/replay-forward-v1.md) and [replay analysis](docs/replay-analysis-v1.md).
 
 ## License
 

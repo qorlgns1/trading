@@ -23,6 +23,11 @@ def test_meta_and_screener_expose_demo_contract() -> None:
         assert quality_issues.status_code == 403
         quality_csv = client.get("/api/v1/research/quality/issues.csv")
         assert quality_csv.status_code == 403
+        assert client.post("/api/v1/research/replays", json={}).status_code == 403
+        assert client.get("/api/v1/research/replays/missing").status_code == 403
+        assert client.get("/api/v1/research/candidate-history").status_code == 403
+        assert client.post("/api/v1/forward/accounts", json={}).status_code == 403
+        assert client.get("/api/v1/forward/accounts/current").status_code == 403
 
         response = client.get(
             "/api/v1/screener",

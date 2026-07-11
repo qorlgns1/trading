@@ -16,6 +16,16 @@ export type QualityReport = components["schemas"]["QualityReportResponse"];
 export type QualityIssues = components["schemas"]["QualityIssuesResponse"];
 export type QualityIssue = components["schemas"]["QualityIssue"];
 export type ScoreTrace = components["schemas"]["ScoreTrace"];
+export type ReplayResponse = components["schemas"]["ReplayResponse"];
+export type ReplayAccepted = components["schemas"]["ReplayAccepted"];
+export type ReplayAnalysis = components["schemas"]["ReplayAnalysis"];
+export type ReplayRoundTrip = components["schemas"]["ReplayRoundTrip"];
+export type CandidateHistory =
+  components["schemas"]["CandidateHistoryResponse"];
+export type CandidateHistoryItem =
+  components["schemas"]["CandidateHistoryItem"];
+export type ForwardAccount = components["schemas"]["ForwardAccountResponse"];
+export type ForwardActivity = components["schemas"]["ForwardActivityResponse"];
 
 const serverOrigin = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
 

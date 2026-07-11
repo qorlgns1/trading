@@ -158,6 +158,116 @@
         "title": "BacktestResponse",
         "type": "object"
       },
+      "CandidateEventType": {
+        "enum": [
+          "BASELINE",
+          "ENTERED",
+          "RETAINED",
+          "EXITED"
+        ],
+        "title": "CandidateEventType",
+        "type": "string"
+      },
+      "CandidateHistoryItem": {
+        "properties": {
+          "as_of": {
+            "format": "date",
+            "title": "As Of",
+            "type": "string"
+          },
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/CandidateEventType"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "peer_group": {
+            "$ref": "#/components/schemas/PeerGroup"
+          },
+          "previous_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Score"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "as_of",
+          "data_version",
+          "event_type",
+          "asset_id",
+          "symbol",
+          "name",
+          "peer_group"
+        ],
+        "title": "CandidateHistoryItem",
+        "type": "object"
+      },
+      "CandidateHistoryResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateHistoryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "total_pages",
+          "items"
+        ],
+        "title": "CandidateHistoryResponse",
+        "type": "object"
+      },
       "CandidateState": {
         "enum": [
           "STRONG_CANDIDATE",
@@ -189,6 +299,226 @@
         ],
         "title": "DataStatus",
         "type": "string"
+      },
+      "ForwardAccountCreate": {
+        "properties": {
+          "sleeve_weights_bps": {
+            "$ref": "#/components/schemas/SleeveWeights"
+          }
+        },
+        "title": "ForwardAccountCreate",
+        "type": "object"
+      },
+      "ForwardAccountResponse": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "string"
+          },
+          "annualized_metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annualized Metrics"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "baseline_data_version": {
+            "title": "Baseline Data Version",
+            "type": "string"
+          },
+          "cash_krw": {
+            "title": "Cash Krw",
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cumulative_return": {
+            "title": "Cumulative Return",
+            "type": "number"
+          },
+          "current_value_krw": {
+            "title": "Current Value Krw",
+            "type": "number"
+          },
+          "initial_capital_krw": {
+            "title": "Initial Capital Krw",
+            "type": "number"
+          },
+          "invested_krw": {
+            "title": "Invested Krw",
+            "type": "number"
+          },
+          "last_data_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Data Version"
+          },
+          "last_review_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Review Date"
+          },
+          "market_dates": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Market Dates",
+            "type": "object"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "observation_count": {
+            "title": "Observation Count",
+            "type": "integer"
+          },
+          "pending_orders": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending Orders",
+            "type": "array"
+          },
+          "positions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "review_required_assets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Required Assets",
+            "type": "array"
+          },
+          "sleeve_weights_bps": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sleeve Weights Bps",
+            "type": "object"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PaperAccountStatus"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "account_id",
+          "status",
+          "initial_capital_krw",
+          "sleeve_weights_bps",
+          "baseline_data_version",
+          "created_at",
+          "current_value_krw",
+          "cash_krw",
+          "invested_krw",
+          "cumulative_return",
+          "max_drawdown",
+          "observation_count"
+        ],
+        "title": "ForwardAccountResponse",
+        "type": "object"
+      },
+      "ForwardActivityResponse": {
+        "properties": {
+          "account_id": {
+            "title": "Account Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_id",
+          "total",
+          "page",
+          "page_size",
+          "total_pages",
+          "items"
+        ],
+        "title": "ForwardActivityResponse",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -253,6 +583,17 @@
         ],
         "title": "MetaResponse",
         "type": "object"
+      },
+      "PaperAccountStatus": {
+        "enum": [
+          "WAITING_FOR_REVIEW",
+          "ACTIVE",
+          "REVIEW_REQUIRED",
+          "ARCHIVED",
+          "ERROR"
+        ],
+        "title": "PaperAccountStatus",
+        "type": "string"
       },
       "PaperPortfolioResponse": {
         "properties": {
@@ -719,6 +1060,1082 @@
           "blocking_issues"
         ],
         "title": "QualityTotals",
+        "type": "object"
+      },
+      "ReplayAccepted": {
+        "properties": {
+          "cached": {
+            "default": false,
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "ReplayAccepted",
+        "type": "object"
+      },
+      "ReplayAnalysis": {
+        "properties": {
+          "annual_periods": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayPeriod"
+            },
+            "title": "Annual Periods",
+            "type": "array"
+          },
+          "cost_summary": {
+            "$ref": "#/components/schemas/ReplayCostSummary"
+          },
+          "gap_analysis": {
+            "$ref": "#/components/schemas/ReplayGapAnalysis"
+          },
+          "headline": {
+            "$ref": "#/components/schemas/ReplayHeadline"
+          },
+          "integrity_checks": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayIntegrityCheck"
+            },
+            "title": "Integrity Checks",
+            "type": "array"
+          },
+          "market_regimes": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayMarketRegime"
+            },
+            "title": "Market Regimes",
+            "type": "array"
+          },
+          "monthly_periods": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayPeriod"
+            },
+            "title": "Monthly Periods",
+            "type": "array"
+          },
+          "sleeve_attribution": {
+            "items": {
+              "$ref": "#/components/schemas/ReplaySleeveAttribution"
+            },
+            "title": "Sleeve Attribution",
+            "type": "array"
+          },
+          "trade_analysis": {
+            "$ref": "#/components/schemas/ReplayTradeAnalysis"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "headline",
+          "gap_analysis",
+          "cost_summary",
+          "annual_periods",
+          "monthly_periods",
+          "sleeve_attribution",
+          "trade_analysis",
+          "market_regimes",
+          "integrity_checks"
+        ],
+        "title": "ReplayAnalysis",
+        "type": "object"
+      },
+      "ReplayCostSummary": {
+        "properties": {
+          "compounded_cost_drag_krw": {
+            "title": "Compounded Cost Drag Krw",
+            "type": "number"
+          },
+          "cost_drag": {
+            "title": "Cost Drag",
+            "type": "number"
+          },
+          "explicit_cost_krw": {
+            "title": "Explicit Cost Krw",
+            "type": "number"
+          },
+          "initial_fx_cost_krw": {
+            "title": "Initial Fx Cost Krw",
+            "type": "number"
+          },
+          "trade_cost_krw": {
+            "title": "Trade Cost Krw",
+            "type": "number"
+          }
+        },
+        "required": [
+          "initial_fx_cost_krw",
+          "trade_cost_krw",
+          "explicit_cost_krw",
+          "compounded_cost_drag_krw",
+          "cost_drag"
+        ],
+        "title": "ReplayCostSummary",
+        "type": "object"
+      },
+      "ReplayCreate": {
+        "properties": {
+          "sleeve_weights_bps": {
+            "$ref": "#/components/schemas/SleeveWeights"
+          }
+        },
+        "title": "ReplayCreate",
+        "type": "object"
+      },
+      "ReplayDrawdownPoint": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "drawdown": {
+            "title": "Drawdown",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "drawdown"
+        ],
+        "title": "ReplayDrawdownPoint",
+        "type": "object"
+      },
+      "ReplayEquityPoint": {
+        "properties": {
+          "benchmark": {
+            "title": "Benchmark",
+            "type": "number"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exposure_matched_benchmark": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure Matched Benchmark"
+          },
+          "no_cost_portfolio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Cost Portfolio"
+          },
+          "portfolio": {
+            "title": "Portfolio",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "portfolio",
+          "benchmark"
+        ],
+        "title": "ReplayEquityPoint",
+        "type": "object"
+      },
+      "ReplayGapAnalysis": {
+        "properties": {
+          "actual_strategy_return": {
+            "title": "Actual Strategy Return",
+            "type": "number"
+          },
+          "cost_effect": {
+            "title": "Cost Effect",
+            "type": "number"
+          },
+          "exposure_effect": {
+            "title": "Exposure Effect",
+            "type": "number"
+          },
+          "exposure_matched_return": {
+            "title": "Exposure Matched Return",
+            "type": "number"
+          },
+          "full_benchmark_return": {
+            "title": "Full Benchmark Return",
+            "type": "number"
+          },
+          "no_cost_strategy_return": {
+            "title": "No Cost Strategy Return",
+            "type": "number"
+          },
+          "reconciliation_error": {
+            "title": "Reconciliation Error",
+            "type": "number"
+          },
+          "selection_execution_effect": {
+            "title": "Selection Execution Effect",
+            "type": "number"
+          }
+        },
+        "required": [
+          "full_benchmark_return",
+          "exposure_matched_return",
+          "no_cost_strategy_return",
+          "actual_strategy_return",
+          "exposure_effect",
+          "selection_execution_effect",
+          "cost_effect",
+          "reconciliation_error"
+        ],
+        "title": "ReplayGapAnalysis",
+        "type": "object"
+      },
+      "ReplayHeadline": {
+        "properties": {
+          "largest_effect": {
+            "title": "Largest Effect",
+            "type": "number"
+          },
+          "largest_effect_label": {
+            "title": "Largest Effect Label",
+            "type": "string"
+          },
+          "largest_gap_excess_return": {
+            "title": "Largest Gap Excess Return",
+            "type": "number"
+          },
+          "largest_gap_period": {
+            "title": "Largest Gap Period",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "summary",
+          "largest_effect_label",
+          "largest_effect",
+          "largest_gap_period",
+          "largest_gap_excess_return"
+        ],
+        "title": "ReplayHeadline",
+        "type": "object"
+      },
+      "ReplayIntegrityCheck": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "status",
+          "severity",
+          "detail"
+        ],
+        "title": "ReplayIntegrityCheck",
+        "type": "object"
+      },
+      "ReplayMarketRegime": {
+        "properties": {
+          "average_candidate_count": {
+            "title": "Average Candidate Count",
+            "type": "number"
+          },
+          "average_held_count": {
+            "title": "Average Held Count",
+            "type": "number"
+          },
+          "entry_allowed_count": {
+            "title": "Entry Allowed Count",
+            "type": "integer"
+          },
+          "entry_allowed_rate": {
+            "title": "Entry Allowed Rate",
+            "type": "number"
+          },
+          "entry_blocked_count": {
+            "title": "Entry Blocked Count",
+            "type": "integer"
+          },
+          "peer_group": {
+            "$ref": "#/components/schemas/PeerGroup"
+          },
+          "planned_buy_count": {
+            "title": "Planned Buy Count",
+            "type": "integer"
+          },
+          "planned_sell_count": {
+            "title": "Planned Sell Count",
+            "type": "integer"
+          },
+          "review_count": {
+            "title": "Review Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "peer_group",
+          "review_count",
+          "entry_allowed_count",
+          "entry_blocked_count",
+          "entry_allowed_rate",
+          "average_candidate_count",
+          "planned_buy_count",
+          "planned_sell_count",
+          "average_held_count"
+        ],
+        "title": "ReplayMarketRegime",
+        "type": "object"
+      },
+      "ReplayPeriod": {
+        "properties": {
+          "average_exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Exposure"
+          },
+          "benchmark_return": {
+            "title": "Benchmark Return",
+            "type": "number"
+          },
+          "cost_krw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Krw"
+          },
+          "excess_return": {
+            "title": "Excess Return",
+            "type": "number"
+          },
+          "exposure_matched_return": {
+            "title": "Exposure Matched Return",
+            "type": "number"
+          },
+          "max_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Drawdown"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "strategy_return": {
+            "title": "Strategy Return",
+            "type": "number"
+          },
+          "trade_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Count"
+          }
+        },
+        "required": [
+          "period",
+          "strategy_return",
+          "benchmark_return",
+          "exposure_matched_return",
+          "excess_return"
+        ],
+        "title": "ReplayPeriod",
+        "type": "object"
+      },
+      "ReplayPosition": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "market_value_krw": {
+            "title": "Market Value Krw",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "peer_group": {
+            "$ref": "#/components/schemas/PeerGroup"
+          },
+          "price": {
+            "title": "Price",
+            "type": "number"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "sleeve": {
+            "$ref": "#/components/schemas/Sleeve"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "symbol",
+          "name",
+          "peer_group",
+          "sleeve",
+          "quantity",
+          "price",
+          "market_value_krw",
+          "score"
+        ],
+        "title": "ReplayPosition",
+        "type": "object"
+      },
+      "ReplayResponse": {
+        "properties": {
+          "bias_warning": {
+            "default": "현재 상장 종목 기준으로 생존편향이 포함됩니다.",
+            "title": "Bias Warning",
+            "type": "string"
+          },
+          "completed_units": {
+            "title": "Completed Units",
+            "type": "integer"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "progress_percent": {
+            "title": "Progress Percent",
+            "type": "number"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayResultSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "total_units": {
+            "title": "Total Units",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "stage",
+          "completed_units",
+          "total_units",
+          "progress_percent",
+          "data_version",
+          "created_at",
+          "updated_at",
+          "config"
+        ],
+        "title": "ReplayResponse",
+        "type": "object"
+      },
+      "ReplayResultSummary": {
+        "properties": {
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayAnalysis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cache_hit": {
+            "default": false,
+            "title": "Cache Hit",
+            "type": "boolean"
+          },
+          "cache_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Key"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "drawdown_curve": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayDrawdownPoint"
+            },
+            "title": "Drawdown Curve",
+            "type": "array"
+          },
+          "ended_on": {
+            "format": "date",
+            "title": "Ended On",
+            "type": "string"
+          },
+          "equity_curve": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayEquityPoint"
+            },
+            "title": "Equity Curve",
+            "type": "array"
+          },
+          "final_positions": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayPosition"
+            },
+            "title": "Final Positions",
+            "type": "array"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "portfolio_version": {
+            "title": "Portfolio Version",
+            "type": "string"
+          },
+          "review_required_assets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Required Assets",
+            "type": "array"
+          },
+          "score_version": {
+            "title": "Score Version",
+            "type": "string"
+          },
+          "started_on": {
+            "format": "date",
+            "title": "Started On",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_version",
+          "score_version",
+          "portfolio_version",
+          "started_on",
+          "ended_on",
+          "metrics",
+          "equity_curve",
+          "drawdown_curve",
+          "final_positions"
+        ],
+        "title": "ReplayResultSummary",
+        "type": "object"
+      },
+      "ReplayRoundTrip": {
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "costs_krw": {
+            "title": "Costs Krw",
+            "type": "number"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "dividends_krw": {
+            "title": "Dividends Krw",
+            "type": "number"
+          },
+          "entry_date": {
+            "format": "date",
+            "title": "Entry Date",
+            "type": "string"
+          },
+          "entry_notional_krw": {
+            "title": "Entry Notional Krw",
+            "type": "number"
+          },
+          "entry_price": {
+            "title": "Entry Price",
+            "type": "number"
+          },
+          "entry_score": {
+            "title": "Entry Score",
+            "type": "number"
+          },
+          "exit_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
+          "exit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Price"
+          },
+          "exit_reason": {
+            "title": "Exit Reason",
+            "type": "string"
+          },
+          "exit_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Score"
+          },
+          "exit_value_krw": {
+            "title": "Exit Value Krw",
+            "type": "number"
+          },
+          "holding_days": {
+            "title": "Holding Days",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "net_pnl_krw": {
+            "title": "Net Pnl Krw",
+            "type": "number"
+          },
+          "net_return": {
+            "title": "Net Return",
+            "type": "number"
+          },
+          "peer_group": {
+            "$ref": "#/components/schemas/PeerGroup"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "sleeve": {
+            "$ref": "#/components/schemas/Sleeve"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_id",
+          "symbol",
+          "name",
+          "peer_group",
+          "sleeve",
+          "currency",
+          "status",
+          "entry_date",
+          "exit_date",
+          "entry_score",
+          "exit_score",
+          "quantity",
+          "entry_price",
+          "exit_price",
+          "entry_notional_krw",
+          "exit_value_krw",
+          "dividends_krw",
+          "costs_krw",
+          "net_pnl_krw",
+          "net_return",
+          "holding_days",
+          "exit_reason"
+        ],
+        "title": "ReplayRoundTrip",
+        "type": "object"
+      },
+      "ReplaySleeveAttribution": {
+        "properties": {
+          "average_exposure": {
+            "title": "Average Exposure",
+            "type": "number"
+          },
+          "contribution": {
+            "title": "Contribution",
+            "type": "number"
+          },
+          "cost_krw": {
+            "title": "Cost Krw",
+            "type": "number"
+          },
+          "dividend_krw": {
+            "title": "Dividend Krw",
+            "type": "number"
+          },
+          "ending_value_krw": {
+            "title": "Ending Value Krw",
+            "type": "number"
+          },
+          "initial_allocation_krw": {
+            "title": "Initial Allocation Krw",
+            "type": "number"
+          },
+          "pnl_krw": {
+            "title": "Pnl Krw",
+            "type": "number"
+          },
+          "return": {
+            "title": "Return",
+            "type": "number"
+          },
+          "sleeve": {
+            "$ref": "#/components/schemas/Sleeve"
+          },
+          "trade_count": {
+            "title": "Trade Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sleeve",
+          "initial_allocation_krw",
+          "ending_value_krw",
+          "pnl_krw",
+          "return",
+          "contribution",
+          "average_exposure",
+          "trade_count",
+          "cost_krw",
+          "dividend_krw"
+        ],
+        "title": "ReplaySleeveAttribution",
+        "type": "object"
+      },
+      "ReplayTradeAnalysis": {
+        "properties": {
+          "best_trades": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayRoundTrip"
+            },
+            "title": "Best Trades",
+            "type": "array"
+          },
+          "by_entry_score": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayTradeGroup"
+            },
+            "title": "By Entry Score",
+            "type": "array"
+          },
+          "by_exit_reason": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayTradeGroup"
+            },
+            "title": "By Exit Reason",
+            "type": "array"
+          },
+          "by_sleeve": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayTradeGroup"
+            },
+            "title": "By Sleeve",
+            "type": "array"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/ReplayTradeStats"
+          },
+          "worst_trades": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayRoundTrip"
+            },
+            "title": "Worst Trades",
+            "type": "array"
+          }
+        },
+        "required": [
+          "overall",
+          "by_sleeve",
+          "by_entry_score",
+          "by_exit_reason",
+          "best_trades",
+          "worst_trades"
+        ],
+        "title": "ReplayTradeAnalysis",
+        "type": "object"
+      },
+      "ReplayTradeGroup": {
+        "properties": {
+          "average_gain": {
+            "title": "Average Gain",
+            "type": "number"
+          },
+          "average_loss": {
+            "title": "Average Loss",
+            "type": "number"
+          },
+          "band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band"
+          },
+          "closed_count": {
+            "title": "Closed Count",
+            "type": "integer"
+          },
+          "median_holding_days": {
+            "title": "Median Holding Days",
+            "type": "number"
+          },
+          "net_pnl_krw": {
+            "title": "Net Pnl Krw",
+            "type": "number"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
+          },
+          "payoff_ratio": {
+            "title": "Payoff Ratio",
+            "type": "number"
+          },
+          "profit_factor": {
+            "title": "Profit Factor",
+            "type": "number"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "sleeve": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Sleeve"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "closed_count",
+          "open_count",
+          "win_rate",
+          "average_gain",
+          "average_loss",
+          "payoff_ratio",
+          "profit_factor",
+          "median_holding_days",
+          "net_pnl_krw"
+        ],
+        "title": "ReplayTradeGroup",
+        "type": "object"
+      },
+      "ReplayTradeStats": {
+        "properties": {
+          "average_gain": {
+            "title": "Average Gain",
+            "type": "number"
+          },
+          "average_loss": {
+            "title": "Average Loss",
+            "type": "number"
+          },
+          "closed_count": {
+            "title": "Closed Count",
+            "type": "integer"
+          },
+          "median_holding_days": {
+            "title": "Median Holding Days",
+            "type": "number"
+          },
+          "net_pnl_krw": {
+            "title": "Net Pnl Krw",
+            "type": "number"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
+          },
+          "payoff_ratio": {
+            "title": "Payoff Ratio",
+            "type": "number"
+          },
+          "profit_factor": {
+            "title": "Profit Factor",
+            "type": "number"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "closed_count",
+          "open_count",
+          "win_rate",
+          "average_gain",
+          "average_loss",
+          "payoff_ratio",
+          "profit_factor",
+          "median_holding_days",
+          "net_pnl_krw"
+        ],
+        "title": "ReplayTradeStats",
         "type": "object"
       },
       "ResearchStatusResponse": {
@@ -1343,6 +2760,16 @@
         "title": "ScreenerResponse",
         "type": "object"
       },
+      "Sleeve": {
+        "enum": [
+          "US_STOCK",
+          "KR_STOCK",
+          "US_ETF",
+          "KR_ETF"
+        ],
+        "title": "Sleeve",
+        "type": "string"
+      },
       "SleeveWeights": {
         "properties": {
           "kr_etf": {
@@ -1615,6 +3042,217 @@
         ]
       }
     },
+    "/api/v1/forward/accounts": {
+      "post": {
+        "operationId": "create_forward_account_api_v1_forward_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForwardAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Forward Account",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
+    "/api/v1/forward/accounts/current": {
+      "get": {
+        "operationId": "current_forward_account_api_v1_forward_accounts_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current Forward Account",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
+    "/api/v1/forward/accounts/{account_id}/activity": {
+      "get": {
+        "operationId": "forward_account_activity_api_v1_forward_accounts__account_id__activity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Forward Account Activity",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
+    "/api/v1/forward/accounts/{account_id}/archive": {
+      "post": {
+        "operationId": "archive_forward_account_api_v1_forward_accounts__account_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Forward Account",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
+    "/api/v1/forward/accounts/{account_id}/retry": {
+      "post": {
+        "operationId": "retry_forward_account_api_v1_forward_accounts__account_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Forward Account",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "meta_api_v1_meta_get",
@@ -1654,6 +3292,128 @@
         "summary": "Paper Portfolio",
         "tags": [
           "portfolio"
+        ]
+      }
+    },
+    "/api/v1/research/candidate-history": {
+      "get": {
+        "operationId": "candidate_history_api_v1_research_candidate_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "peer_group",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PeerGroup"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Peer Group"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CandidateEventType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Candidate History",
+        "tags": [
+          "forward-research"
         ]
       }
     },
@@ -1892,6 +3652,135 @@
         "summary": "Research Quality Issues Csv",
         "tags": [
           "research-quality"
+        ]
+      }
+    },
+    "/api/v1/research/replays": {
+      "post": {
+        "operationId": "create_research_replay_api_v1_research_replays_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Research Replay",
+        "tags": [
+          "research-replays"
+        ]
+      }
+    },
+    "/api/v1/research/replays/{run_id}": {
+      "get": {
+        "operationId": "get_research_replay_api_v1_research_replays__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Research Replay",
+        "tags": [
+          "research-replays"
+        ]
+      }
+    },
+    "/api/v1/research/replays/{run_id}/artifacts": {
+      "get": {
+        "operationId": "get_research_replay_artifacts_api_v1_research_replays__run_id__artifacts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArtifactResponse"
+                  },
+                  "title": "Response Get Research Replay Artifacts Api V1 Research Replays  Run Id  Artifacts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Research Replay Artifacts",
+        "tags": [
+          "research-replays"
         ]
       }
     },

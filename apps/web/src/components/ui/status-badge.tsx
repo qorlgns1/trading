@@ -26,6 +26,18 @@ const LABELS: Record<string, string> = {
   WARN_ONLY: "확인 필요",
   ERROR: "오류",
   WARNING: "경고",
+  BASELINE: "기준 저장",
+  ENTERED: "후보 편입",
+  RETAINED: "후보 유지",
+  EXITED: "후보 해제",
+  WAITING_FOR_REVIEW: "주간 평가 대기",
+  ACTIVE: "운영 중",
+  REVIEW_REQUIRED: "검토 필요",
+  ARCHIVED: "보관",
+  PENDING: "체결 대기",
+  DEFERRED: "체결 이월",
+  FILLED: "체결 완료",
+  CANCELLED: "취소",
 };
 
 export function StatusBadge({ state }: { state: string }) {
@@ -62,6 +74,12 @@ export function StatusBadge({ state }: { state: string }) {
         ].includes(state) && "status-running",
         ["SUCCEEDED", "READY", "PASS", "REPAIRED"].includes(state) &&
           "status-complete",
+        ["ENTERED", "ACTIVE", "FILLED"].includes(state) && "status-complete",
+        ["RETAINED", "BASELINE"].includes(state) && "status-candidate",
+        ["EXITED", "REVIEW_REQUIRED"].includes(state) && "status-danger",
+        ["WAITING_FOR_REVIEW", "PENDING", "DEFERRED"].includes(state) &&
+          "status-running",
+        ["ARCHIVED", "CANCELLED"].includes(state) && "status-muted",
       )}
     >
       {LABELS[state] ?? state}

@@ -12,7 +12,7 @@ KRX credentials are read from the ignored local `.env`, represented as secret se
 
 Nasdaq's free directory identifies whether a security is an ETF but does not guarantee an equity asset class. The MVP therefore applies conservative deterministic classification: explicit leveraged, inverse, derivative, fixed-income, and commodity signals are excluded, while ambiguous ETF names remain visible as `상품 유형 확인 필요` rather than being guessed into an equity peer group.
 
-Pinned `yfinance==1.5.1` supplies unadjusted and adjusted OHLCV, dividends, splits, peer benchmarks, and `KRW=X`. Collection uses `repair=True`; repaired rows are recorded as `provider_repaired` and shown in the local quality report. The collector aligns benchmarks and FX to asset sessions, refreshes full history after newly observed corporate actions or invalid prices, and writes immutable Parquet snapshots.
+Pinned `yfinance==1.5.1` supplies OHLCV, adjusted close, dividends, splits, peer benchmarks, and `KRW=X`. Collection uses `repair=True`; repaired rows are recorded as `provider_repaired` and shown in the local quality report. The collector aligns benchmarks and FX to asset sessions, refreshes full history after newly observed corporate actions or invalid prices, and writes immutable Parquet snapshots.
 
 Before a snapshot is activated, `data-quality-v1.0.0` checks schema, uniqueness, requested dates, universe metadata, benchmarks, FX, prices, volumes, corporate actions, score invariants, peer-group coverage, and quarantine limits. Errors that belong to one asset quarantine only that asset after one full-history retry. Structural or reference-data failures keep the previous active snapshot unchanged.
 
@@ -26,4 +26,6 @@ The following files are never committed or served by the public API:
 
 ## Research Limitation
 
-Free-data screening starts with current listed securities. This introduces survivorship and current-universe bias because historical delisted securities are missing. Real-data backtesting and performance claims are disabled in this phase; they require a licensed point-in-time universe and delisting-aware data source.
+Free-data screening starts with current listed securities. This introduces survivorship and current-universe bias because historical delisted securities are missing. Local mode may replay these prices for strategy debugging, but every result is labeled `현재 상장 종목 기준·생존편향 포함` and must not be presented as an official performance claim. A defensible historical performance study still requires a licensed point-in-time universe and delisting-aware data source.
+
+Yahoo historical OHLC is split-adjusted. Historical replay therefore keeps provider-normalized share units and does not multiply quantities again on split dates. The forward ledger, which owns quantities acquired before a newly observed split, applies the split event once when processing the next validated snapshot.

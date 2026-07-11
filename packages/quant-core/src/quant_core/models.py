@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass, field
-from datetime import date
+from datetime import date as Date
 from enum import Enum
 from typing import Any, cast
 
@@ -8,7 +8,7 @@ from quant_core.enums import PeerGroup, Sleeve
 
 @dataclass(frozen=True)
 class Trade:
-    date: date
+    date: Date
     asset_id: str
     symbol: str
     side: str
@@ -18,6 +18,9 @@ class Trade:
     cost: float
     currency: str
     reason: str
+    decision_date: Date | None = None
+    signal_date: Date | None = None
+    score: float | None = None
 
 
 @dataclass(frozen=True)
@@ -40,20 +43,21 @@ class BacktestResult:
     score_version: str
     portfolio_version: str
     config_hash: str
-    started_on: date
-    ended_on: date
+    started_on: Date
+    ended_on: Date
     metrics: dict[str, float]
     equity_curve: list[dict[str, Any]]
     drawdown_curve: list[dict[str, Any]]
     trades: list[Trade]
     final_positions: list[PositionSnapshot]
+    review_required_assets: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         def jsonable(value: Any) -> Any:
             if isinstance(value, Enum):
                 return value.value
-            if isinstance(value, date):
+            if isinstance(value, Date):
                 return value.isoformat()
             if isinstance(value, dict):
                 return {key: jsonable(item) for key, item in value.items()}

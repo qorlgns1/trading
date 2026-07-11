@@ -3,11 +3,14 @@
 import {
   BookOpen,
   BriefcaseBusiness,
+  ChartLine,
   FlaskConical,
+  History,
   LayoutDashboard,
   ListFilter,
   Menu,
   ShieldCheck,
+  WalletCards,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -32,6 +35,9 @@ const DEMO_NAVIGATION = [
 const LOCAL_NAVIGATION = [
   ...CORE_NAVIGATION.slice(0, 2),
   { href: "/quality", label: "데이터 품질", icon: ShieldCheck },
+  { href: "/replays", label: "과거 시뮬레이션", icon: ChartLine },
+  { href: "/candidate-history", label: "후보 이력", icon: History },
+  { href: "/forward", label: "포워드 포트폴리오", icon: WalletCards },
   CORE_NAVIGATION[2],
 ];
 

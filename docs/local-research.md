@@ -45,7 +45,7 @@ make api
 make web
 ```
 
-Open `http://127.0.0.1:3000`. Startup requests a sync when the current snapshot is missing or stale. The same operation can be retried from the dashboard. A repeated request reuses the active run instead of starting a second concurrent collection.
+`make api` applies the current Alembic migration before starting FastAPI. Open `http://127.0.0.1:3000`. Startup requests a sync when the current snapshot is missing or stale. The same operation can be retried from the dashboard. A repeated request reuses the active run instead of starting a second concurrent collection.
 
 `price-pipeline-v2.0.0` enables provider price repair and adds row-level repair provenance. The first sync after upgrading from the previous pipeline intentionally downloads the full ten-year history once; subsequent runs return to incremental collection.
 
@@ -68,7 +68,13 @@ data/research/
   quality-runs/<sync-id>/
     summary.json
     issues.parquet
+  replay-cache/<cache-key>/peer_group=<group>/year=<year>/scores.parquet
+  leases/<data-version>/<run-id>
+  forward/signals/<data-version>/candidates.parquet
+  forward/accounts/<account-id>/scores/<data-version>.parquet
   current.json
 ```
 
 Only a fully materialized, scored, and quality-approved snapshot updates `current.json`. The latest three snapshots and latest ten run-level quality reports are retained. Raw data, score files, quality reports, and local database files are ignored by Git.
+
+Open **과거 시뮬레이션** to run the current-listed universe through `portfolio-v1.0.0`. A completed run provides summary, cause analysis, trade quality, and replay-integrity tabs plus HTML/JSON/CSV and Parquet ledgers. Open **후보 이력** for daily candidate changes. **포워드 포트폴리오** creates one active account, freezes its sleeve weights, stores the current snapshot as `BASELINE`, and waits for the next completed weekly review before creating orders. These local-only APIs return `403` in `public_demo`.

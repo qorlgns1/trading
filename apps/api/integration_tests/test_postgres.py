@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import date
 
 import pytest
 import pytest_asyncio
@@ -8,6 +9,7 @@ from quant_api.database import (
     UniverseSnapshotModel,
     engine,
 )
+from quant_api.forward_repository import ForwardLedgerRepository
 from quant_api.research_repository import ResearchRepository
 from quant_core.enums import RunStatus, SyncTrigger
 from sqlalchemy import inspect, select, text
@@ -20,6 +22,15 @@ APPLICATION_TABLES = {
     "backtest_runs",
     "research_sync_runs",
     "universe_snapshots",
+    "candidate_snapshots",
+    "candidate_events",
+    "paper_accounts",
+    "paper_reviews",
+    "paper_orders",
+    "paper_trades",
+    "paper_positions",
+    "paper_cash",
+    "paper_valuations",
 }
 
 
@@ -28,7 +39,8 @@ async def _truncate_application_tables() -> None:
         await connection.execute(
             text(
                 "TRUNCATE TABLE artifacts, backtest_runs, research_sync_runs, "
-                "universe_snapshots RESTART IDENTITY CASCADE"
+                "universe_snapshots, candidate_snapshots, paper_accounts "
+                "RESTART IDENTITY CASCADE"
             )
         )
 
@@ -55,7 +67,7 @@ async def test_alembic_schema_is_current_on_postgresql() -> None:
 
     assert engine.dialect.name == "postgresql"
     assert tables >= APPLICATION_TABLES
-    assert revision == "20260710_0002"
+    assert revision == "20260711_0003"
 
 
 @pytest.mark.asyncio
@@ -130,3 +142,35 @@ async def test_research_state_and_active_snapshot_are_transactional() -> None:
     assert active is not None
     assert active.version == "universe-v2"
     assert [snapshot.is_active for snapshot in snapshots] == [False, True]
+
+
+@pytest.mark.asyncio
+async def test_forward_account_slot_is_enforced_on_postgresql() -> None:
+    repository = ForwardLedgerRepository()
+    weights = {
+        "US_STOCK": 2500,
+        "KR_STOCK": 2500,
+        "US_ETF": 2500,
+        "KR_ETF": 2500,
+    }
+    first = await repository.create_account(
+        weights=weights,
+        baseline_data_version="data-v1",
+        baseline_as_of=date(2026, 7, 10),
+        market_dates={"US": "2026-07-09", "KR": "2026-07-10"},
+    )
+    with pytest.raises(ValueError, match="한 개"):
+        await repository.create_account(
+            weights=weights,
+            baseline_data_version="data-v1",
+            baseline_as_of=date(2026, 7, 10),
+            market_dates={"US": "2026-07-09", "KR": "2026-07-10"},
+        )
+    await repository.archive_account(first.id)
+    second = await repository.create_account(
+        weights=weights,
+        baseline_data_version="data-v2",
+        baseline_as_of=date(2026, 7, 17),
+        market_dates={"US": "2026-07-16", "KR": "2026-07-17"},
+    )
+    assert second.active_slot == "CURRENT"

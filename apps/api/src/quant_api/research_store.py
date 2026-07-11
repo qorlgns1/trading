@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import shutil
+from contextlib import suppress
 from datetime import date
 from pathlib import Path
 from typing import Any, cast
@@ -27,11 +28,13 @@ class ResearchSnapshotStore:
         self.root = root
         self.snapshots_root = root / "snapshots"
         self.checkpoints_root = root / "checkpoints"
+        self.leases_root = root / "leases"
         self.pointer_path = root / "current.json"
 
     def ensure(self) -> None:
         self.snapshots_root.mkdir(parents=True, exist_ok=True)
         self.checkpoints_root.mkdir(parents=True, exist_ok=True)
+        self.leases_root.mkdir(parents=True, exist_ok=True)
 
     def current_manifest(self) -> dict[str, Any] | None:
         if not self.pointer_path.is_file():
@@ -48,6 +51,26 @@ class ResearchSnapshotStore:
         if manifest is None:
             return None
         return self.root / str(manifest["snapshot_path"])
+
+    def snapshot_path(self, data_version: str) -> Path:
+        path = self.snapshots_root / data_version
+        if not (path / "manifest.json").is_file():
+            raise ResearchSnapshotMissing(f"데이터 스냅샷을 찾을 수 없습니다: {data_version}")
+        return path
+
+    def acquire_lease(self, data_version: str, owner_id: str) -> Path:
+        self.ensure()
+        self.snapshot_path(data_version)
+        path = self.leases_root / data_version / owner_id
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("leased\n", encoding="utf-8")
+        return path
+
+    def release_lease(self, data_version: str, owner_id: str) -> None:
+        path = self.leases_root / data_version / owner_id
+        path.unlink(missing_ok=True)
+        with suppress(OSError):
+            path.parent.rmdir()
 
     def create_staging(self, run_id: str) -> Path:
         self.ensure()
@@ -113,7 +136,20 @@ class ResearchSnapshotStore:
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
-        for path in directories[count:]:
+        leased = (
+            {
+                path.name
+                for path in self.leases_root.iterdir()
+                if path.is_dir() and any(path.iterdir())
+            }
+            if self.leases_root.is_dir()
+            else set()
+        )
+        retained = 0
+        for path in directories:
+            if path.name in leased or retained < count:
+                retained += path.name not in leased
+                continue
             shutil.rmtree(path, ignore_errors=True)
 
     def scan_bars(

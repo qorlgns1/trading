@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import date
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response, status
@@ -6,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from quant_core.config import PORTFOLIO_VERSION, TREND_SCORE_VERSION
 from quant_core.enums import (
+    CandidateEventType,
     CandidateState,
     PeerGroup,
     QualityResolution,
@@ -23,8 +25,23 @@ from quant_api.backtests import (
     response_from_model,
 )
 from quant_api.database import create_schema
+from quant_api.forward import forward_service
 from quant_api.rate_limit import RateLimitExceeded, client_key, create_rate_limiter
 from quant_api.research import LocalFeatureUnavailable, research_service
+from quant_api.research_replays import (
+    artifact_responses as replay_artifact_responses,
+)
+from quant_api.research_replays import (
+    create_replay,
+    execute_replay,
+    recover_interrupted_replays,
+)
+from quant_api.research_replays import (
+    repository as replay_repository,
+)
+from quant_api.research_replays import (
+    response_from_model as replay_response_from_model,
+)
 from quant_api.research_store import ResearchSnapshotMissing
 from quant_api.research_sync import research_sync_manager
 from quant_api.schemas import (
@@ -33,10 +50,17 @@ from quant_api.schemas import (
     BacktestAccepted,
     BacktestCreate,
     BacktestResponse,
+    CandidateHistoryResponse,
+    ForwardAccountCreate,
+    ForwardAccountResponse,
+    ForwardActivityResponse,
     MetaResponse,
     PaperPortfolioResponse,
     QualityIssuesResponse,
     QualityReportResponse,
+    ReplayAccepted,
+    ReplayCreate,
+    ReplayResponse,
     ResearchStatusResponse,
     ResearchSyncAccepted,
     ResearchSyncResponse,
@@ -53,6 +77,7 @@ async def lifespan(app: FastAPI) -> Any:
     del app
     if settings.auto_create_schema:
         await create_schema()
+    await recover_interrupted_replays()
     await research_sync_manager.startup()
     try:
         yield
@@ -84,6 +109,11 @@ async def research_snapshot_missing(_: Request, error: ResearchSnapshotMissing) 
 
 @app.exception_handler(LocalFeatureUnavailable)
 async def local_feature_unavailable(_: Request, error: LocalFeatureUnavailable) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(error)})
+
+
+@app.exception_handler(PermissionError)
+async def permission_error(_: Request, error: PermissionError) -> JSONResponse:
     return JSONResponse(status_code=403, content={"detail": str(error)})
 
 
@@ -208,6 +238,146 @@ async def research_sync_quality(sync_id: str) -> QualityReportResponse:
     return research_service.quality_report(sync_id)
 
 
+@app.post(
+    "/api/v1/research/replays",
+    response_model=ReplayAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["research-replays"],
+)
+async def create_research_replay(
+    payload: ReplayCreate, background_tasks: BackgroundTasks
+) -> ReplayAccepted:
+    try:
+        model, cached = await create_replay(payload)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    if not cached:
+        background_tasks.add_task(execute_replay, model.id)
+    return ReplayAccepted(
+        run_id=model.id,
+        status=RunStatus.SUCCEEDED if cached else RunStatus.QUEUED,
+        cached=cached,
+    )
+
+
+@app.get(
+    "/api/v1/research/replays/{run_id}",
+    response_model=ReplayResponse,
+    tags=["research-replays"],
+)
+async def get_research_replay(run_id: str) -> ReplayResponse:
+    if settings.app_mode != "local_research":
+        raise PermissionError("실데이터 과거 재생은 local_research 모드에서만 사용할 수 있습니다.")
+    model = await replay_repository.get(run_id)
+    if model is None or model.run_kind != "REAL_REPLAY":
+        raise HTTPException(status_code=404, detail="과거 시뮬레이션 실행을 찾을 수 없습니다.")
+    return replay_response_from_model(model)
+
+
+@app.get(
+    "/api/v1/research/replays/{run_id}/artifacts",
+    response_model=list[ArtifactResponse],
+    tags=["research-replays"],
+)
+async def get_research_replay_artifacts(run_id: str) -> list[ArtifactResponse]:
+    if settings.app_mode != "local_research":
+        raise PermissionError("실데이터 과거 재생은 local_research 모드에서만 사용할 수 있습니다.")
+    model = await replay_repository.get(run_id)
+    if model is None or model.run_kind != "REAL_REPLAY":
+        raise HTTPException(status_code=404, detail="과거 시뮬레이션 실행을 찾을 수 없습니다.")
+    return [
+        ArtifactResponse.model_validate(item) for item in await replay_artifact_responses(run_id)
+    ]
+
+
+@app.get(
+    "/api/v1/research/candidate-history",
+    response_model=CandidateHistoryResponse,
+    tags=["forward-research"],
+)
+async def candidate_history(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+    peer_group: PeerGroup | None = None,
+    event_type: CandidateEventType | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> CandidateHistoryResponse:
+    return await forward_service.candidate_history(
+        page=page,
+        page_size=page_size,
+        peer_group=peer_group,
+        event_type=event_type,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+@app.post(
+    "/api/v1/forward/accounts",
+    response_model=ForwardAccountResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["forward-research"],
+)
+async def create_forward_account(payload: ForwardAccountCreate) -> ForwardAccountResponse:
+    try:
+        return await forward_service.create_account(payload)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get(
+    "/api/v1/forward/accounts/current",
+    response_model=ForwardAccountResponse,
+    tags=["forward-research"],
+)
+async def current_forward_account() -> ForwardAccountResponse:
+    account = await forward_service.current_account()
+    if account is None:
+        raise HTTPException(status_code=404, detail="활성 포워드 계좌가 없습니다.")
+    return account
+
+
+@app.get(
+    "/api/v1/forward/accounts/{account_id}/activity",
+    response_model=ForwardActivityResponse,
+    tags=["forward-research"],
+)
+async def forward_account_activity(
+    account_id: str,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ForwardActivityResponse:
+    try:
+        return await forward_service.activity(account_id, page=page, page_size=page_size)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="포워드 계좌를 찾을 수 없습니다.") from error
+
+
+@app.post(
+    "/api/v1/forward/accounts/{account_id}/archive",
+    response_model=ForwardAccountResponse,
+    tags=["forward-research"],
+)
+async def archive_forward_account(account_id: str) -> ForwardAccountResponse:
+    try:
+        return await forward_service.archive_account(account_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="포워드 계좌를 찾을 수 없습니다.") from error
+
+
+@app.post(
+    "/api/v1/forward/accounts/{account_id}/retry",
+    response_model=ForwardAccountResponse,
+    tags=["forward-research"],
+)
+async def retry_forward_account(account_id: str) -> ForwardAccountResponse:
+    try:
+        return await forward_service.retry(account_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="포워드 계좌를 찾을 수 없습니다.") from error
+
+
 @app.get("/api/v1/screener", response_model=ScreenerResponse, tags=["research"])
 async def screener(
     peer_group: PeerGroup | None = None,
@@ -313,6 +483,8 @@ async def get_artifacts(run_id: str) -> list[ArtifactResponse]:
 
 @app.get("/api/v1/artifacts/local/{object_key:path}", include_in_schema=False)
 async def local_artifact(object_key: str) -> FileResponse:
+    if object_key.startswith("research-runs/") and settings.app_mode != "local_research":
+        raise HTTPException(status_code=403, detail="실데이터 산출물은 로컬 모드 전용입니다.")
     path = artifact_store.local_path(object_key)
     if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="산출물을 찾을 수 없습니다.")

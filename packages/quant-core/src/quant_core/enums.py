@@ -47,6 +47,33 @@ class RunStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class RunKind(StrEnum):
+    DEMO_BACKTEST = "DEMO_BACKTEST"
+    REAL_REPLAY = "REAL_REPLAY"
+
+
+class CandidateEventType(StrEnum):
+    BASELINE = "BASELINE"
+    ENTERED = "ENTERED"
+    RETAINED = "RETAINED"
+    EXITED = "EXITED"
+
+
+class PaperAccountStatus(StrEnum):
+    WAITING_FOR_REVIEW = "WAITING_FOR_REVIEW"
+    ACTIVE = "ACTIVE"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    ARCHIVED = "ARCHIVED"
+    ERROR = "ERROR"
+
+
+class PaperOrderStatus(StrEnum):
+    PENDING = "PENDING"
+    FILLED = "FILLED"
+    CANCELLED = "CANCELLED"
+    DEFERRED = "DEFERRED"
+
+
 class DataSource(StrEnum):
     SYNTHETIC = "SYNTHETIC"
     YFINANCE = "YFINANCE"

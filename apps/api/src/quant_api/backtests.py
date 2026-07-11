@@ -71,6 +71,9 @@ def _csv_bytes(result: dict[str, Any]) -> bytes:
         "cost",
         "currency",
         "reason",
+        "decision_date",
+        "signal_date",
+        "score",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()

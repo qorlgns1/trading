@@ -6,7 +6,7 @@
 - Mode: long-only paper simulation
 - Base currency: KRW
 - Starting capital: KRW 50,000,000
-- Review frequency: weekly, after the final session close for each synthetic week
+- Review frequency: weekly, after the final Korean and US session closes are both confirmed
 
 ## Allocation and Capacity
 
@@ -26,8 +26,9 @@ Public users may change only the four sleeve weights. Inputs use integer basis p
 3. Candidates are ordered by score, relative momentum, and asset ID for deterministic ties.
 4. A higher-ranked candidate does not replace a valid current holding. Only an empty slot can be filled.
 5. A holding exits when the gate fails or its weekly score falls below 60.
-6. Every order executes at the next available session open. Missing or suspended opens defer the order.
-7. A delisted synthetic asset is closed at its recorded recovery value.
+6. Every order executes at the next available session open for its own market. Missing sell opens remain pending; missing buys are canceled at the next weekly review.
+7. A held asset with failed, stale, or quarantined data is marked `REVIEW_REQUIRED` and is not sold automatically.
+8. A validated delisting recovery closes the position at its recorded recovery value.
 
 ## Cash, FX, and Costs
 
@@ -40,4 +41,4 @@ Public users may change only the four sleeve weights. Inputs use integer basis p
 
 ## Reported Metrics
 
-CAGR, annual volatility, Sharpe, Sortino, maximum drawdown, Calmar, turnover, trade count, average exposure, total return, and a sleeve-weighted synthetic benchmark are reported. Sharpe and Sortino use a 0% risk-free or minimum acceptable return in v1.
+CAGR, annual volatility, Sharpe, Sortino, maximum drawdown, Calmar, turnover, trade count, average exposure, total return, and a sleeve-weighted synthetic benchmark are reported. Real-data replay returns and drawdowns start from the full KRW 50,000,000 before the initial FX cost. Sharpe and Sortino use a 0% risk-free or minimum acceptable return in v1.

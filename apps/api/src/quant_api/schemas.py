@@ -3,9 +3,11 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from quant_core.enums import (
+    CandidateEventType,
     CandidateState,
     DataSource,
     DataStatus,
+    PaperAccountStatus,
     PeerGroup,
     QualityResolution,
     QualitySeverity,
@@ -65,6 +67,212 @@ class BacktestResponse(BaseModel):
     config: dict[str, Any]
     result: dict[str, Any] | None = None
     error_message: str | None = None
+
+
+class ReplayCreate(BaseModel):
+    sleeve_weights_bps: SleeveWeights = Field(default_factory=SleeveWeights)
+
+
+class ReplayAccepted(BaseModel):
+    run_id: str
+    status: RunStatus
+    cached: bool = False
+
+
+class ReplayEquityPoint(BaseModel):
+    date: date
+    portfolio: float
+    benchmark: float
+    exposure_matched_benchmark: float | None = None
+    no_cost_portfolio: float | None = None
+
+
+class ReplayDrawdownPoint(BaseModel):
+    date: date
+    drawdown: float
+
+
+class ReplayPosition(BaseModel):
+    asset_id: str
+    symbol: str
+    name: str
+    peer_group: PeerGroup
+    sleeve: Sleeve
+    quantity: int
+    price: float
+    market_value_krw: float
+    score: float
+
+
+class ReplayHeadline(BaseModel):
+    title: str
+    summary: str
+    largest_effect_label: str
+    largest_effect: float
+    largest_gap_period: str
+    largest_gap_excess_return: float
+
+
+class ReplayGapAnalysis(BaseModel):
+    full_benchmark_return: float
+    exposure_matched_return: float
+    no_cost_strategy_return: float
+    actual_strategy_return: float
+    exposure_effect: float
+    selection_execution_effect: float
+    cost_effect: float
+    reconciliation_error: float
+
+
+class ReplayCostSummary(BaseModel):
+    initial_fx_cost_krw: float
+    trade_cost_krw: float
+    explicit_cost_krw: float
+    compounded_cost_drag_krw: float
+    cost_drag: float
+
+
+class ReplayPeriod(BaseModel):
+    period: str
+    strategy_return: float
+    benchmark_return: float
+    exposure_matched_return: float
+    excess_return: float
+    max_drawdown: float | None = None
+    average_exposure: float | None = None
+    trade_count: int | None = None
+    cost_krw: float | None = None
+
+
+class ReplaySleeveAttribution(BaseModel):
+    sleeve: Sleeve
+    initial_allocation_krw: float
+    ending_value_krw: float
+    pnl_krw: float
+    return_: float = Field(alias="return", serialization_alias="return")
+    contribution: float
+    average_exposure: float
+    trade_count: int
+    cost_krw: float
+    dividend_krw: float
+
+
+class ReplayTradeStats(BaseModel):
+    closed_count: int
+    open_count: int
+    win_rate: float
+    average_gain: float
+    average_loss: float
+    payoff_ratio: float
+    profit_factor: float
+    median_holding_days: float
+    net_pnl_krw: float
+
+
+class ReplayTradeGroup(ReplayTradeStats):
+    sleeve: Sleeve | None = None
+    band: str | None = None
+    reason: str | None = None
+
+
+class ReplayRoundTrip(BaseModel):
+    asset_id: str
+    symbol: str
+    name: str
+    peer_group: PeerGroup
+    sleeve: Sleeve
+    currency: str
+    status: str
+    entry_date: date
+    exit_date: date | None
+    entry_score: float
+    exit_score: float | None
+    quantity: int
+    entry_price: float
+    exit_price: float | None
+    entry_notional_krw: float
+    exit_value_krw: float
+    dividends_krw: float
+    costs_krw: float
+    net_pnl_krw: float
+    net_return: float
+    holding_days: int
+    exit_reason: str
+
+
+class ReplayTradeAnalysis(BaseModel):
+    overall: ReplayTradeStats
+    by_sleeve: list[ReplayTradeGroup]
+    by_entry_score: list[ReplayTradeGroup]
+    by_exit_reason: list[ReplayTradeGroup]
+    best_trades: list[ReplayRoundTrip]
+    worst_trades: list[ReplayRoundTrip]
+
+
+class ReplayMarketRegime(BaseModel):
+    peer_group: PeerGroup
+    review_count: int
+    entry_allowed_count: int
+    entry_blocked_count: int
+    entry_allowed_rate: float
+    average_candidate_count: float
+    planned_buy_count: int
+    planned_sell_count: int
+    average_held_count: float
+
+
+class ReplayIntegrityCheck(BaseModel):
+    code: str
+    label: str
+    status: str
+    severity: str
+    detail: str
+
+
+class ReplayAnalysis(BaseModel):
+    version: str
+    headline: ReplayHeadline
+    gap_analysis: ReplayGapAnalysis
+    cost_summary: ReplayCostSummary
+    annual_periods: list[ReplayPeriod]
+    monthly_periods: list[ReplayPeriod]
+    sleeve_attribution: list[ReplaySleeveAttribution]
+    trade_analysis: ReplayTradeAnalysis
+    market_regimes: list[ReplayMarketRegime]
+    integrity_checks: list[ReplayIntegrityCheck]
+
+
+class ReplayResultSummary(BaseModel):
+    data_version: str
+    score_version: str
+    portfolio_version: str
+    started_on: date
+    ended_on: date
+    metrics: dict[str, float]
+    equity_curve: list[ReplayEquityPoint]
+    drawdown_curve: list[ReplayDrawdownPoint]
+    final_positions: list[ReplayPosition]
+    review_required_assets: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    cache_hit: bool = False
+    cache_key: str | None = None
+    analysis: ReplayAnalysis | None = None
+
+
+class ReplayResponse(BaseModel):
+    run_id: str
+    status: RunStatus
+    stage: str
+    completed_units: int
+    total_units: int
+    progress_percent: float
+    data_version: str
+    created_at: datetime
+    updated_at: datetime
+    config: dict[str, Any]
+    result: ReplayResultSummary | None = None
+    error_message: str | None = None
+    bias_warning: str = "현재 상장 종목 기준으로 생존편향이 포함됩니다."
 
 
 class ScoreComponents(BaseModel):
@@ -266,3 +474,66 @@ class ResearchStatusResponse(BaseModel):
     coverage: list[PeerCoverage] = Field(default_factory=list)
     last_sync: ResearchSyncResponse | None = None
     can_sync: bool
+
+
+class CandidateHistoryItem(BaseModel):
+    as_of: date
+    data_version: str
+    event_type: CandidateEventType
+    asset_id: str
+    symbol: str
+    name: str
+    peer_group: PeerGroup
+    score: float | None = None
+    previous_score: float | None = None
+
+
+class CandidateHistoryResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    items: list[CandidateHistoryItem]
+
+
+class ForwardAccountCreate(BaseModel):
+    sleeve_weights_bps: SleeveWeights = Field(default_factory=SleeveWeights)
+
+
+class ForwardAccountResponse(BaseModel):
+    account_id: str
+    status: PaperAccountStatus
+    initial_capital_krw: float
+    sleeve_weights_bps: dict[str, int]
+    baseline_data_version: str
+    last_data_version: str | None = None
+    last_review_date: date | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    archived_at: datetime | None = None
+    current_value_krw: float
+    cash_krw: float
+    invested_krw: float
+    cumulative_return: float
+    max_drawdown: float
+    observation_count: int
+    annualized_metrics: dict[str, float] | None = None
+    market_dates: dict[str, str] = Field(default_factory=dict)
+    positions: list[dict[str, Any]] = Field(default_factory=list)
+    pending_orders: list[dict[str, Any]] = Field(default_factory=list)
+    review_required_assets: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ForwardActivityResponse(BaseModel):
+    account_id: str
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    items: list[dict[str, Any]]
+
+
+class ForwardActionResponse(BaseModel):
+    account_id: str
+    status: PaperAccountStatus

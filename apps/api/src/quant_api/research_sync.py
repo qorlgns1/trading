@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import shutil
 from datetime import UTC, date, datetime
 from typing import Any
@@ -32,6 +33,8 @@ from quant_api.schemas import (
 )
 from quant_api.settings import Settings, get_settings
 from quant_api.universe import ExchangeUniverseClient, UniverseSnapshot, build_universe_snapshot
+
+logger = logging.getLogger(__name__)
 
 
 class ResearchSyncManager:
@@ -160,6 +163,14 @@ class ResearchSyncManager:
                 failed_json=build.failed,
             )
             self.service.reload()
+            try:
+                from quant_api.forward import forward_service
+
+                await forward_service.process_snapshot(build.data_version)
+            except Exception:
+                logger.exception(
+                    "Forward processing failed after activating %s", build.data_version
+                )
         except asyncio.CancelledError:
             await self.repository.update_sync(
                 run_id,

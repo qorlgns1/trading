@@ -17,7 +17,7 @@ API_PORT ?= 8000
 WEB_PORT ?= 3000
 API_INTERNAL_URL ?= http://127.0.0.1:$(API_PORT)
 
-.PHONY: bootstrap dev api web test test-python test-web test-integration lint typecheck build openapi compose-up compose-down
+.PHONY: bootstrap dev migrate api web test test-python test-web test-integration lint typecheck build openapi compose-up compose-down
 
 bootstrap:
 	$(UV) sync --all-packages --all-groups
@@ -26,7 +26,11 @@ bootstrap:
 dev:
 	docker compose up --build
 
-api:
+migrate:
+	@mkdir -p data
+	$(ALEMBIC) -c apps/api/alembic.ini upgrade head
+
+api: migrate
 	$(UVICORN) quant_api.main:app --app-dir apps/api/src --reload --host $(API_HOST) --port $(API_PORT)
 
 web:
