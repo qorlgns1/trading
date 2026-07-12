@@ -43,3 +43,39 @@ def test_krx_credentials_are_secret_values() -> None:
     assert settings.krx_id.get_secret_value() == "research-user"
     assert "research-user" not in repr(settings.krx_id)
     assert "research-password" not in repr(settings.krx_pw)
+
+
+def test_toss_credentials_must_be_configured_as_a_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("TOSSINVEST_CLIENT_ID", raising=False)
+    monkeypatch.delenv("TOSSINVEST_CLIENT_SECRET", raising=False)
+    with pytest.raises(ValidationError, match="함께 설정"):
+        Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            tossinvest_client_id="client-id",
+        )
+
+
+def test_enabled_toss_provider_requires_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOSSINVEST_CLIENT_ID", raising=False)
+    monkeypatch.delenv("TOSSINVEST_CLIENT_SECRET", raising=False)
+    with pytest.raises(ValidationError, match="자격증명"):
+        Settings(_env_file=None, tossinvest_enabled=True)  # type: ignore[call-arg]
+
+
+def test_toss_credentials_are_secret_and_base_url_is_normalized() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        tossinvest_enabled=True,
+        tossinvest_base_url="https://openapi.example.test/",
+        tossinvest_client_id="client-id",
+        tossinvest_client_secret="client-secret",
+    )
+
+    assert settings.tossinvest_client_id is not None
+    assert settings.tossinvest_client_secret is not None
+    assert settings.tossinvest_client_id.get_secret_value() == "client-id"
+    assert settings.tossinvest_base_url == "https://openapi.example.test"
+    assert "client-id" not in repr(settings.tossinvest_client_id)
+    assert "client-secret" not in repr(settings.tossinvest_client_secret)

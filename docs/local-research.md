@@ -12,6 +12,9 @@ RESEARCH_HISTORY_YEARS=10
 RESEARCH_AUTO_SYNC=true
 KRX_ID=your-krx-login-id
 KRX_PW=your-krx-login-password
+TOSSINVEST_ENABLED=false
+TOSSINVEST_CLIENT_ID=
+TOSSINVEST_CLIENT_SECRET=
 ```
 
 The public Docker Compose stack fixes `APP_MODE=public_demo`; real-data mode is intended only for direct local execution.
@@ -21,6 +24,12 @@ The public Docker Compose stack fixes `APP_MODE=public_demo`; real-data mode is 
 `pykrx==1.2.8` creates an authenticated KRX session and downloads the stock and ETF basic-information reports. The application uses those reports only to build the Korean universe; price history continues to come from the local-only yfinance adapter.
 
 Keep `.env` ignored and readable only by your user. Neither credential is stored in the database, universe manifest, logs, or public API responses.
+
+## Optional Toss Standby Provider
+
+Set `TOSSINVEST_ENABLED=true` and provide both Toss credentials to prepare the market-data connection. Open **관리** and select **연결 확인** to issue an in-memory OAuth token and query `005930` and `AAPL`. The screen stores only the latest status, check time, latency, and sanitized error code. It never displays credentials or tokens.
+
+Toss remains outside the research pipeline: enabling or checking it does not replace yfinance data or change scores, replays, and forward accounts. The management APIs return `403` in `public_demo`.
 
 ## Optional KRX CSV Fallback
 

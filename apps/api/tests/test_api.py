@@ -28,6 +28,8 @@ def test_meta_and_screener_expose_demo_contract() -> None:
         assert client.get("/api/v1/research/candidate-history").status_code == 403
         assert client.post("/api/v1/forward/accounts", json={}).status_code == 403
         assert client.get("/api/v1/forward/accounts/current").status_code == 403
+        assert client.get("/api/v1/admin/providers").status_code == 403
+        assert client.post("/api/v1/admin/providers/toss/check").status_code == 403
 
         response = client.get(
             "/api/v1/screener",

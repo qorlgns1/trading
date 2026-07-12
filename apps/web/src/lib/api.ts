@@ -26,6 +26,8 @@ export type CandidateHistoryItem =
   components["schemas"]["CandidateHistoryItem"];
 export type ForwardAccount = components["schemas"]["ForwardAccountResponse"];
 export type ForwardActivity = components["schemas"]["ForwardActivityResponse"];
+export type ProviderList = components["schemas"]["ProviderListResponse"];
+export type ProviderStatus = components["schemas"]["ProviderStatusResponse"];
 
 const serverOrigin = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
 

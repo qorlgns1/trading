@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/v1/admin/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Providers */
+        get: operations["admin_providers_api_v1_admin_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/providers/toss/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Toss Provider */
+        post: operations["check_toss_provider_api_v1_admin_providers_toss_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets/{asset_id}": {
         parameters: {
             query?: never;
@@ -707,6 +741,46 @@ export interface components {
          * @enum {string}
          */
         PeerGroup: "US_STOCK" | "KR_KOSPI" | "KR_KOSDAQ" | "US_EQUITY_ETF" | "KR_DOMESTIC_EQUITY_ETF" | "KR_OVERSEAS_EQUITY_ETF";
+        /**
+         * ProviderConnectionState
+         * @enum {string}
+         */
+        ProviderConnectionState: "ACTIVE" | "AVAILABLE" | "NOT_CHECKED" | "NOT_CONFIGURED" | "UNAVAILABLE";
+        /**
+         * ProviderId
+         * @enum {string}
+         */
+        ProviderId: "YFINANCE" | "KRX" | "TOSS";
+        /** ProviderListResponse */
+        ProviderListResponse: {
+            /** Items */
+            items: components["schemas"]["ProviderStatusResponse"][];
+        };
+        /** ProviderStatusResponse */
+        ProviderStatusResponse: {
+            /** Capabilities */
+            capabilities?: string[];
+            /** Configured */
+            configured: boolean;
+            /** Description */
+            description: string;
+            /** Display Name */
+            display_name: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Last Checked At */
+            last_checked_at?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Message */
+            message: string;
+            provider: components["schemas"]["ProviderId"];
+            /** Role */
+            role: string;
+            status: components["schemas"]["ProviderConnectionState"];
+            /** Used In Pipeline */
+            used_in_pipeline: boolean;
+        };
         /** QualityCheck */
         QualityCheck: {
             /** Affected Count */
@@ -1483,6 +1557,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_providers_api_v1_admin_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderListResponse"];
+                };
+            };
+        };
+    };
+    check_toss_provider_api_v1_admin_providers_toss_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderStatusResponse"];
+                };
+            };
+        };
+    };
     asset_detail_api_v1_assets__asset_id__get: {
         parameters: {
             query?: never;

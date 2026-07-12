@@ -26,6 +26,7 @@ from quant_api.backtests import (
 )
 from quant_api.database import create_schema
 from quant_api.forward import forward_service
+from quant_api.provider_admin import provider_admin_service
 from quant_api.rate_limit import RateLimitExceeded, client_key, create_rate_limiter
 from quant_api.research import LocalFeatureUnavailable, research_service
 from quant_api.research_replays import (
@@ -56,6 +57,8 @@ from quant_api.schemas import (
     ForwardActivityResponse,
     MetaResponse,
     PaperPortfolioResponse,
+    ProviderListResponse,
+    ProviderStatusResponse,
     QualityIssuesResponse,
     QualityReportResponse,
     ReplayAccepted,
@@ -140,6 +143,25 @@ async def meta() -> MetaResponse:
         snapshot_state=research_status.snapshot_state,
         can_sync=research_status.can_sync,
     )
+
+
+@app.get(
+    "/api/v1/admin/providers",
+    response_model=ProviderListResponse,
+    tags=["admin"],
+)
+async def admin_providers() -> ProviderListResponse:
+    research_status = await research_sync_manager.status()
+    return await provider_admin_service.providers(research_status)
+
+
+@app.post(
+    "/api/v1/admin/providers/toss/check",
+    response_model=ProviderStatusResponse,
+    tags=["admin"],
+)
+async def check_toss_provider() -> ProviderStatusResponse:
+    return await provider_admin_service.check_toss()
 
 
 @app.get(

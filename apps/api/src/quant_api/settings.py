@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     krx_pw: SecretStr | None = None
     research_krx_stock_csv: Path | None = None
     research_krx_etf_csv: Path | None = None
+    tossinvest_enabled: bool = False
+    tossinvest_base_url: str = "https://openapi.tossinvest.com"
+    tossinvest_client_id: SecretStr | None = None
+    tossinvest_client_secret: SecretStr | None = None
 
     @field_validator("research_krx_stock_csv", "research_krx_etf_csv", mode="before")
     @classmethod
@@ -59,6 +63,19 @@ class Settings(BaseSettings):
         has_krx_pw = self.krx_pw is not None and bool(self.krx_pw.get_secret_value())
         if has_krx_id != has_krx_pw:
             raise ValueError("KRX_ID와 KRX_PW는 함께 설정해야 합니다.")
+        has_toss_id = self.tossinvest_client_id is not None and bool(
+            self.tossinvest_client_id.get_secret_value()
+        )
+        has_toss_secret = self.tossinvest_client_secret is not None and bool(
+            self.tossinvest_client_secret.get_secret_value()
+        )
+        if has_toss_id != has_toss_secret:
+            raise ValueError(
+                "TOSSINVEST_CLIENT_ID와 TOSSINVEST_CLIENT_SECRET은 함께 설정해야 합니다."
+            )
+        if self.tossinvest_enabled and not (has_toss_id and has_toss_secret):
+            raise ValueError("토스 Open API를 활성화하려면 자격증명이 필요합니다.")
+        self.tossinvest_base_url = self.tossinvest_base_url.rstrip("/")
         return self
 
 

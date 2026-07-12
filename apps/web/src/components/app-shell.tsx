@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   ListFilter,
   Menu,
+  Settings2,
   ShieldCheck,
   WalletCards,
   X,
@@ -39,6 +40,7 @@ const LOCAL_NAVIGATION = [
   { href: "/candidate-history", label: "후보 이력", icon: History },
   { href: "/forward", label: "포워드 포트폴리오", icon: WalletCards },
   CORE_NAVIGATION[2],
+  { href: "/admin", label: "관리", icon: Settings2 },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

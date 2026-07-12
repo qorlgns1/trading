@@ -1821,6 +1821,163 @@ a {
   font-size: 10px;
 }
 
+.provider-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.provider-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 18px 0;
+}
+
+.provider-notice svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.provider-panel {
+  margin-top: 18px;
+}
+
+.provider-table-heading,
+.provider-row {
+  display: grid;
+  grid-template-columns:
+    minmax(190px, 1.2fr) minmax(280px, 2fr) minmax(180px, 1.15fr)
+    minmax(140px, 0.9fr) 118px;
+  gap: 18px;
+}
+
+.provider-table-heading {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-subtle);
+  padding: 10px 18px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.provider-row {
+  min-height: 132px;
+  align-items: center;
+  border-bottom: 1px solid #e7ebe8;
+  padding: 18px;
+}
+
+.provider-row:last-child {
+  border-bottom: 0;
+}
+
+.provider-identity {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.provider-icon {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #bad2e2;
+  border-radius: 6px;
+  background: var(--blue-soft);
+  color: #205e86;
+}
+
+.provider-identity strong,
+.provider-role strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.provider-pipeline-state {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.provider-role {
+  min-width: 0;
+}
+
+.provider-role p {
+  margin: 5px 0 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.provider-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.provider-capabilities span {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-subtle);
+  padding: 3px 6px;
+  color: var(--text-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.provider-status,
+.provider-checked-at {
+  min-width: 0;
+}
+
+.provider-status small,
+.provider-checked-at span,
+.provider-checked-at small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.provider-status small {
+  margin-top: 7px;
+}
+
+.provider-checked-at span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.provider-checked-at small {
+  margin-top: 3px;
+}
+
+.provider-action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.provider-action .button {
+  width: 118px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.provider-footnote {
+  margin: 10px 2px 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
 .spin {
   animation: spin 900ms linear infinite;
 }
@@ -1828,6 +1985,34 @@ a {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1320px) {
+  .provider-table-heading {
+    display: none;
+  }
+
+  .provider-row {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 0.55fr);
+    gap: 14px 24px;
+  }
+
+  .provider-role {
+    grid-column: 1;
+  }
+
+  .provider-status {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .provider-checked-at {
+    grid-column: 1;
+  }
+
+  .provider-action {
+    grid-column: 2;
   }
 }
 
@@ -1874,6 +2059,15 @@ a {
 
   .candidate-group-grid {
     grid-template-columns: 1fr;
+  }
+
+  .provider-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .provider-metrics .metric-cell:nth-child(3) {
+    border-top: 0;
+    border-left: 1px solid var(--border);
   }
 }
 
@@ -1985,6 +2179,16 @@ a {
 
   .methodology-score-detail {
     padding: 24px;
+  }
+
+  .provider-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-metrics .metric-cell + .metric-cell,
+  .provider-metrics .metric-cell:nth-child(3) {
+    border-top: 1px solid var(--border);
+    border-left: 0;
   }
 }
 
@@ -2210,6 +2414,32 @@ a {
   .quality-message,
   .quality-code {
     max-width: none;
+  }
+
+  .provider-row {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    padding: 15px 13px;
+  }
+
+  .provider-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-role,
+  .provider-status,
+  .provider-checked-at,
+  .provider-action {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .provider-action {
+    justify-content: flex-start;
+  }
+
+  .provider-footnote {
+    text-align: left;
   }
 }
 

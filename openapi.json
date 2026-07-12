@@ -689,6 +689,123 @@
         "title": "PeerGroup",
         "type": "string"
       },
+      "ProviderConnectionState": {
+        "enum": [
+          "ACTIVE",
+          "AVAILABLE",
+          "NOT_CHECKED",
+          "NOT_CONFIGURED",
+          "UNAVAILABLE"
+        ],
+        "title": "ProviderConnectionState",
+        "type": "string"
+      },
+      "ProviderId": {
+        "enum": [
+          "YFINANCE",
+          "KRX",
+          "TOSS"
+        ],
+        "title": "ProviderId",
+        "type": "string"
+      },
+      "ProviderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderStatusResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ProviderListResponse",
+        "type": "object"
+      },
+      "ProviderStatusResponse": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/ProviderId"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProviderConnectionState"
+          },
+          "used_in_pipeline": {
+            "title": "Used In Pipeline",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "display_name",
+          "role",
+          "description",
+          "enabled",
+          "configured",
+          "used_in_pipeline",
+          "status",
+          "message"
+        ],
+        "title": "ProviderStatusResponse",
+        "type": "object"
+      },
       "QualityCheck": {
         "properties": {
           "affected_count": {
@@ -2871,6 +2988,48 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/providers": {
+      "get": {
+        "operationId": "admin_providers_api_v1_admin_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Admin Providers",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/providers/toss/check": {
+      "post": {
+        "operationId": "check_toss_provider_api_v1_admin_providers_toss_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Toss Provider",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/assets/{asset_id}": {
       "get": {
         "operationId": "asset_detail_api_v1_assets__asset_id__get",

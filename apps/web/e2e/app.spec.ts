@@ -96,6 +96,86 @@ test("local research exposes quality checks and an asset score trace", async ({
   expect(overflow).toBe(false);
 });
 
+test("local provider admin checks standby Toss connection without changing providers", async ({
+  page,
+}) => {
+  const meta = await page.request.get("/api/v1/meta");
+  const payload = await meta.json();
+  test.skip(
+    payload.app_mode !== "local_research",
+    "local provider settings required",
+  );
+
+  await page.route("**/api/v1/admin/providers/toss/check", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        provider: "TOSS",
+        display_name: "토스증권 Open API",
+        role: "연결 대기 중인 보조 공급자",
+        description:
+          "향후 시세 조회나 공급자 교차 검증에 사용할 연결 기반입니다.",
+        enabled: true,
+        configured: true,
+        used_in_pipeline: false,
+        status: "AVAILABLE",
+        capabilities: ["국내·미국 종목 정보", "일봉 가격"],
+        last_checked_at: "2026-07-11T09:30:00+09:00",
+        latency_ms: 145,
+        message:
+          "국내·미국 대표 종목 조회에 성공했습니다. 현재 데이터 흐름에는 사용하지 않습니다.",
+      }),
+    });
+  });
+
+  await page.goto("/admin");
+  await expect(
+    page.getByRole("heading", { name: "공급자 관리" }),
+  ).toBeVisible();
+  await expect(page.getByText("Yahoo Finance", { exact: true })).toBeVisible();
+  await expect(page.getByText("KRX", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("토스증권 Open API", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("대기 공급자", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "연결 확인" }).click();
+  await expect(page.getByText("연결 가능", { exact: true })).toBeVisible();
+  await expect(page.getByText("응답 145ms", { exact: true })).toBeVisible();
+
+  await page.unroute("**/api/v1/admin/providers/toss/check");
+  await page.route("**/api/v1/admin/providers/toss/check", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        provider: "TOSS",
+        display_name: "토스증권 Open API",
+        role: "연결 대기 중인 보조 공급자",
+        description:
+          "향후 시세 조회나 공급자 교차 검증에 사용할 연결 기반입니다.",
+        enabled: true,
+        configured: true,
+        used_in_pipeline: false,
+        status: "UNAVAILABLE",
+        capabilities: ["국내·미국 종목 정보", "일봉 가격"],
+        last_checked_at: "2026-07-11T09:31:00+09:00",
+        latency_ms: 310,
+        message: "토스 Open API 인증에 실패했습니다.",
+      }),
+    });
+  });
+  await page.getByRole("button", { name: "연결 확인" }).click();
+  await expect(page.getByText("연결 실패", { exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1,
+  );
+  expect(overflow).toBe(false);
+});
+
 test("local replay history and forward tools stay usable", async ({ page }) => {
   const meta = await page.request.get("/api/v1/meta");
   const payload = await meta.json();
@@ -164,8 +244,12 @@ test("local replay analysis tabs explain and validate a completed run", async ({
     page.getByRole("heading", { name: "과거 시뮬레이션 결과" }),
   ).toBeVisible();
   await page.getByRole("tab", { name: "원인 분석" }).click();
-  await expect(page.getByRole("heading", { name: "성과 차이 분해" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "월별 수익률" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "성과 차이 분해" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "월별 수익률" }),
+  ).toBeVisible();
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible();
   const canvasSize = await canvas.evaluate((element) => {

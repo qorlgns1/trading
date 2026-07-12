@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -440,6 +441,39 @@ class MetaResponse(BaseModel):
     data_source: DataSource = DataSource.SYNTHETIC
     snapshot_state: SnapshotState = SnapshotState.READY
     can_sync: bool = False
+
+
+class ProviderId(StrEnum):
+    YFINANCE = "YFINANCE"
+    KRX = "KRX"
+    TOSS = "TOSS"
+
+
+class ProviderConnectionState(StrEnum):
+    ACTIVE = "ACTIVE"
+    AVAILABLE = "AVAILABLE"
+    NOT_CHECKED = "NOT_CHECKED"
+    NOT_CONFIGURED = "NOT_CONFIGURED"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class ProviderStatusResponse(BaseModel):
+    provider: ProviderId
+    display_name: str
+    role: str
+    description: str
+    enabled: bool
+    configured: bool
+    used_in_pipeline: bool
+    status: ProviderConnectionState
+    capabilities: list[str] = Field(default_factory=list)
+    last_checked_at: datetime | None = None
+    latency_ms: int | None = None
+    message: str
+
+
+class ProviderListResponse(BaseModel):
+    items: list[ProviderStatusResponse]
 
 
 class ResearchSyncResponse(BaseModel):

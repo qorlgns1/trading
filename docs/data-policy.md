@@ -10,6 +10,8 @@ The first real-data price adapter uses yfinance only in `local_research` mode. T
 
 KRX credentials are read from the ignored local `.env`, represented as secret settings, and used only to establish the in-process authenticated session. Credentials are not included in logs, database rows, manifests, snapshots, or API responses.
 
+Toss Securities Open API is connected only as an optional standby market-data adapter. Its manual local health check reads representative Korean and US stock metadata but does not write prices, replace yfinance rows, or affect research results. Client credentials stay in the ignored `.env`, access tokens remain in process memory, and only a sanitized latest connection status is stored.
+
 Nasdaq's free directory identifies whether a security is an ETF but does not guarantee an equity asset class. The MVP therefore applies conservative deterministic classification: explicit leveraged, inverse, derivative, fixed-income, and commodity signals are excluded, while ambiguous ETF names remain visible as `상품 유형 확인 필요` rather than being guessed into an equity peer group.
 
 Pinned `yfinance==1.5.1` supplies OHLCV, adjusted close, dividends, splits, peer benchmarks, and `KRW=X`. Collection uses `repair=True`; repaired rows are recorded as `provider_repaired` and shown in the local quality report. The collector aligns benchmarks and FX to asset sessions, refreshes full history after newly observed corporate actions or invalid prices, and writes immutable Parquet snapshots.

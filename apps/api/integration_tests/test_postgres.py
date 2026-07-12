@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 import pytest_asyncio
@@ -10,7 +10,9 @@ from quant_api.database import (
     engine,
 )
 from quant_api.forward_repository import ForwardLedgerRepository
+from quant_api.provider_admin import ProviderConnectionRepository
 from quant_api.research_repository import ResearchRepository
+from quant_api.schemas import ProviderConnectionState, ProviderId
 from quant_core.enums import RunStatus, SyncTrigger
 from sqlalchemy import inspect, select, text
 
@@ -31,6 +33,7 @@ APPLICATION_TABLES = {
     "paper_positions",
     "paper_cash",
     "paper_valuations",
+    "provider_connection_status",
 }
 
 
@@ -39,7 +42,8 @@ async def _truncate_application_tables() -> None:
         await connection.execute(
             text(
                 "TRUNCATE TABLE artifacts, backtest_runs, research_sync_runs, "
-                "universe_snapshots, candidate_snapshots, paper_accounts "
+                "universe_snapshots, candidate_snapshots, paper_accounts, "
+                "provider_connection_status "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -67,7 +71,7 @@ async def test_alembic_schema_is_current_on_postgresql() -> None:
 
     assert engine.dialect.name == "postgresql"
     assert tables >= APPLICATION_TABLES
-    assert revision == "20260711_0003"
+    assert revision == "20260711_0004"
 
 
 @pytest.mark.asyncio
@@ -174,3 +178,22 @@ async def test_forward_account_slot_is_enforced_on_postgresql() -> None:
         market_dates={"US": "2026-07-16", "KR": "2026-07-17"},
     )
     assert second.active_slot == "CURRENT"
+
+
+@pytest.mark.asyncio
+async def test_provider_connection_status_round_trips_through_postgresql() -> None:
+    repository = ProviderConnectionRepository()
+    await repository.save(
+        provider=ProviderId.TOSS,
+        status=ProviderConnectionState.AVAILABLE,
+        checked_at=datetime(2026, 7, 11, 9, 30, tzinfo=UTC),
+        latency_ms=187,
+        error_code=None,
+        message="국내·미국 대표 종목 조회 성공",
+    )
+
+    restored = await ProviderConnectionRepository().get(ProviderId.TOSS)
+
+    assert restored is not None
+    assert restored.status == "AVAILABLE"
+    assert restored.latency_ms == 187

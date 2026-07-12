@@ -39,6 +39,7 @@ flowchart LR
 - Snapshot activation is an atomic pointer replacement. Interrupted runs are marked failed at startup and their completed download checkpoints are reusable.
 - Historical replay pins its input snapshot with a lease, caches annual score partitions, reuses one prepared market matrix for actual/no-cost simulations, and emits reconciled daily, review, and trade-episode ledgers.
 - Forward processing runs after successful activation in a separate failure boundary. Its failure cannot roll back the market-data pointer, and retrying one data version cannot duplicate reviews, orders, trades, or valuations.
+- Toss Securities Open API is a dormant local-only adapter. A manual admin check verifies OAuth and representative KR/US stock metadata, but no startup, sync, scoring, replay, or forward path calls it.
 
 ## Components
 
@@ -98,3 +99,4 @@ The synthetic generator uses seed `20260710` and fixed dates from 2016-01-04 thr
 - Public backtests accept only four integer basis-point weights summing to 10,000. They cannot execute custom code or select arbitrary data.
 - Raw client IPs are never persisted. A keyed HMAC is retained in Valkey for at most one hour for rate and concurrency controls.
 - Artifact downloads use object-specific, ten-minute OCI pre-authenticated requests.
+- KRX and Toss credentials remain secret settings. Toss access tokens are memory-only, and provider diagnostics persist no credentials, token, or raw response.

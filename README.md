@@ -85,6 +85,8 @@ make web
 
 The local application snapshots the current US directory from Nasdaq Trader. Korean stock and ETF basic information is collected through the pinned `pykrx` adapter using `KRX_ID` and `KRX_PW`. These values belong only in the ignored local `.env`; they are masked by the settings model and never written to a manifest. Authenticated KRX CSV exports can still be supplied through `RESEARCH_KRX_STOCK_CSV` and `RESEARCH_KRX_ETF_CSV` as a fallback.
 
+Toss Securities Open API can be configured as an optional standby provider. It is checked only when the user selects **관리 > 연결 확인** and never participates in collection, scoring, replay, or forward processing. Tokens remain in memory and the database stores only the latest sanitized connection result.
+
 The API catches up on startup, polls for completed Korean and US trading sessions, and resumes completed download batches after interruption. Before activation it repairs provider-detected price errors, validates raw bars and score invariants, and quarantines assets whose errors remain. Downloaded data and real-data results remain under `data/research`, are excluded from Git, and are never exposed by the public OCI deployment. See [local real-data operations](docs/local-research.md).
 
 Current-listed-security history is not a point-in-time universe. Local mode therefore exposes its ten-year result only as a **current-universe historical simulation with survivorship bias**, never as an official performance claim. The forward portfolio is stored separately and begins with the first completed weekly review after the user creates an account. See [historical replay and forward ledger](docs/replay-forward-v1.md) and [replay analysis](docs/replay-analysis-v1.md).

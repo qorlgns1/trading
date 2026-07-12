@@ -97,6 +97,20 @@ class ResearchSyncRunModel(Base):
     )
 
 
+class ProviderConnectionStatusModel(Base):
+    __tablename__ = "provider_connection_status"
+
+    provider: Mapped[str] = mapped_column(String(32), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message: Mapped[str] = mapped_column(String(500), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class CandidateSnapshotModel(Base):
     __tablename__ = "candidate_snapshots"
     __table_args__ = (
