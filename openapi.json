@@ -300,8 +300,35 @@
         "title": "DataStatus",
         "type": "string"
       },
+      "ExperimentObjective": {
+        "enum": [
+          "RETURN",
+          "DRAWDOWN",
+          "COST",
+          "BALANCED"
+        ],
+        "title": "ExperimentObjective",
+        "type": "string"
+      },
+      "ExperimentRunRole": {
+        "enum": [
+          "BASELINE",
+          "CHALLENGER",
+          "PARETO",
+          "SWEEP"
+        ],
+        "title": "ExperimentRunRole",
+        "type": "string"
+      },
       "ForwardAccountCreate": {
         "properties": {
+          "name": {
+            "default": "기준 포트폴리오",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
           "sleeve_weights_bps": {
             "$ref": "#/components/schemas/SleeveWeights"
           }
@@ -314,6 +341,10 @@
           "account_id": {
             "title": "Account Id",
             "type": "string"
+          },
+          "account_type": {
+            "$ref": "#/components/schemas/ForwardAccountType",
+            "default": "BASELINE"
           },
           "annualized_metrics": {
             "anyOf": [
@@ -348,6 +379,18 @@
           "cash_krw": {
             "title": "Cash Krw",
             "type": "number"
+          },
+          "common_period_metrics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Period Metrics"
           },
           "created_at": {
             "format": "date-time",
@@ -404,6 +447,11 @@
             "title": "Max Drawdown",
             "type": "number"
           },
+          "name": {
+            "default": "기준 포트폴리오",
+            "title": "Name",
+            "type": "string"
+          },
           "observation_count": {
             "title": "Observation Count",
             "type": "integer"
@@ -438,6 +486,28 @@
             "title": "Sleeve Weights Bps",
             "type": "object"
           },
+          "source_experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Experiment Id"
+          },
+          "source_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Run Id"
+          },
           "started_at": {
             "anyOf": [
               {
@@ -452,6 +522,29 @@
           },
           "status": {
             "$ref": "#/components/schemas/PaperAccountStatus"
+          },
+          "strategy_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Config"
+          },
+          "strategy_config_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Config Hash"
           },
           "warnings": {
             "items": {
@@ -476,6 +569,46 @@
           "observation_count"
         ],
         "title": "ForwardAccountResponse",
+        "type": "object"
+      },
+      "ForwardAccountType": {
+        "enum": [
+          "BASELINE",
+          "EXPERIMENT"
+        ],
+        "title": "ForwardAccountType",
+        "type": "string"
+      },
+      "ForwardAccountsResponse": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/ForwardAccountResponse"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "common_start_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Start Date"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "ForwardAccountsResponse",
         "type": "object"
       },
       "ForwardActivityResponse": {
@@ -532,6 +665,14 @@
         },
         "title": "HTTPValidationError",
         "type": "object"
+      },
+      "MarketGateMode": {
+        "enum": [
+          "BLOCK_NEW_ENTRIES_BELOW_SMA200",
+          "OFF"
+        ],
+        "title": "MarketGateMode",
+        "type": "string"
       },
       "MetaResponse": {
         "properties": {
@@ -687,6 +828,14 @@
           "KR_OVERSEAS_EQUITY_ETF"
         ],
         "title": "PeerGroup",
+        "type": "string"
+      },
+      "PositionSizing": {
+        "enum": [
+          "EQUAL_SLOT",
+          "INVERSE_VOLATILITY"
+        ],
+        "title": "PositionSizing",
         "type": "string"
       },
       "ProviderConnectionState": {
@@ -1179,6 +1328,14 @@
         "title": "QualityTotals",
         "type": "object"
       },
+      "ReplacementPolicy": {
+        "enum": [
+          "FILL_VACANCIES",
+          "TOP_SCORE_REBALANCE"
+        ],
+        "title": "ReplacementPolicy",
+        "type": "string"
+      },
       "ReplayAccepted": {
         "properties": {
           "cached": {
@@ -1270,6 +1427,46 @@
         "title": "ReplayAnalysis",
         "type": "object"
       },
+      "ReplayComparisonResponse": {
+        "properties": {
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "success_assessments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Success Assessments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "experiment_id"
+        ],
+        "title": "ReplayComparisonResponse",
+        "type": "object"
+      },
       "ReplayCostSummary": {
         "properties": {
           "compounded_cost_drag_krw": {
@@ -1306,10 +1503,65 @@
       "ReplayCreate": {
         "properties": {
           "sleeve_weights_bps": {
-            "$ref": "#/components/schemas/SleeveWeights"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SleeveWeights"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplayStrategyConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": "ReplayCreate",
+        "type": "object"
+      },
+      "ReplayDataConfig": {
+        "properties": {
+          "end_date": {
+            "format": "date",
+            "title": "End Date",
+            "type": "string"
+          },
+          "peer_groups": {
+            "items": {
+              "$ref": "#/components/schemas/PeerGroup"
+            },
+            "minItems": 1,
+            "title": "Peer Groups",
+            "type": "array"
+          },
+          "split_date": {
+            "format": "date",
+            "title": "Split Date",
+            "type": "string"
+          },
+          "start_date": {
+            "format": "date",
+            "title": "Start Date",
+            "type": "string"
+          },
+          "universe_mode": {
+            "$ref": "#/components/schemas/UniverseMode",
+            "default": "CURRENT_LISTED"
+          }
+        },
+        "required": [
+          "start_date",
+          "split_date",
+          "end_date"
+        ],
+        "title": "ReplayDataConfig",
         "type": "object"
       },
       "ReplayDrawdownPoint": {
@@ -1375,6 +1627,351 @@
           "benchmark"
         ],
         "title": "ReplayEquityPoint",
+        "type": "object"
+      },
+      "ReplayExecutionConfig": {
+        "properties": {
+          "execution_delay_sessions": {
+            "default": 1,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Execution Delay Sessions",
+            "type": "integer"
+          },
+          "initial_fx_cost": {
+            "default": 0.0025,
+            "maximum": 0.01,
+            "minimum": 0.0,
+            "title": "Initial Fx Cost",
+            "type": "number"
+          },
+          "kr_buy_cost": {
+            "default": 0.0025,
+            "maximum": 0.01,
+            "minimum": 0.0,
+            "title": "Kr Buy Cost",
+            "type": "number"
+          },
+          "kr_sell_cost": {
+            "default": 0.0025,
+            "maximum": 0.01,
+            "minimum": 0.0,
+            "title": "Kr Sell Cost",
+            "type": "number"
+          },
+          "review_frequency": {
+            "$ref": "#/components/schemas/ReviewFrequency",
+            "default": "WEEKLY"
+          },
+          "slippage_bps": {
+            "default": 0,
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Slippage Bps",
+            "type": "number"
+          },
+          "us_buy_cost": {
+            "default": 0.0015,
+            "maximum": 0.01,
+            "minimum": 0.0,
+            "title": "Us Buy Cost",
+            "type": "number"
+          },
+          "us_sell_cost": {
+            "default": 0.0015,
+            "maximum": 0.01,
+            "minimum": 0.0,
+            "title": "Us Sell Cost",
+            "type": "number"
+          }
+        },
+        "title": "ReplayExecutionConfig",
+        "type": "object"
+      },
+      "ReplayExperimentCreate": {
+        "properties": {
+          "baseline_label": {
+            "default": "기준 전략",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Baseline Label",
+            "type": "string"
+          },
+          "baseline_strategy": {
+            "$ref": "#/components/schemas/ReplayStrategyConfig"
+          },
+          "hypothesis": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Hypothesis",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "objective": {
+            "$ref": "#/components/schemas/ExperimentObjective"
+          },
+          "success_criteria": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplaySuccessCriteria"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "hypothesis",
+          "objective",
+          "baseline_strategy"
+        ],
+        "title": "ReplayExperimentCreate",
+        "type": "object"
+      },
+      "ReplayExperimentListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayExperimentSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "ReplayExperimentListResponse",
+        "type": "object"
+      },
+      "ReplayExperimentPatch": {
+        "properties": {
+          "archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "title": "ReplayExperimentPatch",
+        "type": "object"
+      },
+      "ReplayExperimentResponse": {
+        "properties": {
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "hypothesis": {
+            "title": "Hypothesis",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "objective": {
+            "$ref": "#/components/schemas/ExperimentObjective"
+          },
+          "period": {
+            "$ref": "#/components/schemas/ReplayDataConfig"
+          },
+          "run_count": {
+            "default": 0,
+            "title": "Run Count",
+            "type": "integer"
+          },
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "success_criteria": {
+            "$ref": "#/components/schemas/ReplaySuccessCriteria"
+          },
+          "universe_mode": {
+            "$ref": "#/components/schemas/UniverseMode"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "hypothesis",
+          "objective",
+          "status",
+          "data_version",
+          "universe_mode",
+          "created_at",
+          "updated_at",
+          "success_criteria",
+          "period"
+        ],
+        "title": "ReplayExperimentResponse",
+        "type": "object"
+      },
+      "ReplayExperimentRunCreate": {
+        "properties": {
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ExperimentRunRole",
+            "default": "CHALLENGER"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/ReplayStrategyConfig"
+          }
+        },
+        "required": [
+          "label",
+          "strategy"
+        ],
+        "title": "ReplayExperimentRunCreate",
+        "type": "object"
+      },
+      "ReplayExperimentSummary": {
+        "properties": {
+          "archived": {
+            "default": false,
+            "title": "Archived",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "hypothesis": {
+            "title": "Hypothesis",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "objective": {
+            "$ref": "#/components/schemas/ExperimentObjective"
+          },
+          "run_count": {
+            "default": 0,
+            "title": "Run Count",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "universe_mode": {
+            "$ref": "#/components/schemas/UniverseMode"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "name",
+          "hypothesis",
+          "objective",
+          "status",
+          "data_version",
+          "universe_mode",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReplayExperimentSummary",
         "type": "object"
       },
       "ReplayGapAnalysis": {
@@ -1548,6 +2145,126 @@
         "title": "ReplayMarketRegime",
         "type": "object"
       },
+      "ReplayOptionsResponse": {
+        "properties": {
+          "data_version": {
+            "title": "Data Version",
+            "type": "string"
+          },
+          "default_strategy": {
+            "$ref": "#/components/schemas/ReplayStrategyConfig"
+          },
+          "limits": {
+            "additionalProperties": true,
+            "title": "Limits",
+            "type": "object"
+          },
+          "raw_history_end": {
+            "format": "date",
+            "title": "Raw History End",
+            "type": "string"
+          },
+          "raw_history_start": {
+            "format": "date",
+            "title": "Raw History Start",
+            "type": "string"
+          },
+          "supports_point_in_time": {
+            "title": "Supports Point In Time",
+            "type": "boolean"
+          },
+          "universe_modes": {
+            "items": {
+              "$ref": "#/components/schemas/UniverseMode"
+            },
+            "title": "Universe Modes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_version",
+          "raw_history_start",
+          "raw_history_end",
+          "supports_point_in_time",
+          "universe_modes",
+          "default_strategy",
+          "limits"
+        ],
+        "title": "ReplayOptionsResponse",
+        "type": "object"
+      },
+      "ReplayPeerSlots": {
+        "properties": {
+          "kr_domestic_equity_etf": {
+            "default": 2,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Kr Domestic Equity Etf",
+            "type": "integer"
+          },
+          "kr_kosdaq": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Kr Kosdaq",
+            "type": "integer"
+          },
+          "kr_kospi": {
+            "default": 2,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Kr Kospi",
+            "type": "integer"
+          },
+          "kr_overseas_equity_etf": {
+            "default": 1,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Kr Overseas Equity Etf",
+            "type": "integer"
+          },
+          "us_equity_etf": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Us Equity Etf",
+            "type": "integer"
+          },
+          "us_stock": {
+            "default": 3,
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Us Stock",
+            "type": "integer"
+          }
+        },
+        "title": "ReplayPeerSlots",
+        "type": "object"
+      },
+      "ReplayPeerThreshold": {
+        "properties": {
+          "entry_score": {
+            "maximum": 100.0,
+            "minimum": 50.0,
+            "multipleOf": 5.0,
+            "title": "Entry Score",
+            "type": "integer"
+          },
+          "exit_score": {
+            "maximum": 95.0,
+            "minimum": 50.0,
+            "multipleOf": 5.0,
+            "title": "Exit Score",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entry_score",
+          "exit_score"
+        ],
+        "title": "ReplayPeerThreshold",
+        "type": "object"
+      },
       "ReplayPeriod": {
         "properties": {
           "average_exposure": {
@@ -1625,6 +2342,40 @@
         "title": "ReplayPeriod",
         "type": "object"
       },
+      "ReplayPortfolioConfig": {
+        "properties": {
+          "initial_capital_krw": {
+            "default": 50000000,
+            "maximum": 1000000000.0,
+            "minimum": 1000000.0,
+            "title": "Initial Capital Krw",
+            "type": "integer"
+          },
+          "peer_group_slots": {
+            "$ref": "#/components/schemas/ReplayPeerSlots"
+          },
+          "position_sizing": {
+            "$ref": "#/components/schemas/PositionSizing",
+            "default": "EQUAL_SLOT"
+          },
+          "replacement_policy": {
+            "$ref": "#/components/schemas/ReplacementPolicy",
+            "default": "FILL_VACANCIES"
+          },
+          "replacement_score_gap": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Replacement Score Gap",
+            "type": "integer"
+          },
+          "sleeve_weights_bps": {
+            "$ref": "#/components/schemas/SleeveWeights"
+          }
+        },
+        "title": "ReplayPortfolioConfig",
+        "type": "object"
+      },
       "ReplayPosition": {
         "properties": {
           "asset_id": {
@@ -1674,6 +2425,37 @@
           "score"
         ],
         "title": "ReplayPosition",
+        "type": "object"
+      },
+      "ReplayPromotionCreate": {
+        "properties": {
+          "account_type": {
+            "$ref": "#/components/schemas/ForwardAccountType"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_type",
+          "name"
+        ],
+        "title": "ReplayPromotionCreate",
         "type": "object"
       },
       "ReplayResponse": {
@@ -1847,6 +2629,54 @@
             "title": "Started On",
             "type": "string"
           },
+          "strategy_config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Config"
+          },
+          "stress_tests": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stress Tests"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validation"
+          },
+          "walk_forward": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Walk Forward"
+          },
           "warnings": {
             "items": {
               "type": "string"
@@ -1867,6 +2697,38 @@
           "final_positions"
         ],
         "title": "ReplayResultSummary",
+        "type": "object"
+      },
+      "ReplayRiskConfig": {
+        "properties": {
+          "fixed_stop_loss": {
+            "anyOf": [
+              {
+                "maximum": 0.3,
+                "minimum": 0.05,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fixed Stop Loss"
+          },
+          "trailing_stop_loss": {
+            "anyOf": [
+              {
+                "maximum": 0.3,
+                "minimum": 0.05,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trailing Stop Loss"
+          }
+        },
+        "title": "ReplayRiskConfig",
         "type": "object"
       },
       "ReplayRoundTrip": {
@@ -2008,6 +2870,120 @@
         "title": "ReplayRoundTrip",
         "type": "object"
       },
+      "ReplayScoreWeights": {
+        "properties": {
+          "absolute_momentum": {
+            "default": 2500,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Absolute Momentum",
+            "type": "integer"
+          },
+          "high_proximity": {
+            "default": 1000,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "High Proximity",
+            "type": "integer"
+          },
+          "long_term_trend": {
+            "default": 3000,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Long Term Trend",
+            "type": "integer"
+          },
+          "relative_strength": {
+            "default": 2000,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Relative Strength",
+            "type": "integer"
+          },
+          "trading_activity": {
+            "default": 500,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Trading Activity",
+            "type": "integer"
+          },
+          "volatility_stability": {
+            "default": 1000,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Volatility Stability",
+            "type": "integer"
+          }
+        },
+        "title": "ReplayScoreWeights",
+        "type": "object"
+      },
+      "ReplaySignalConfig": {
+        "properties": {
+          "component_weights_bps": {
+            "$ref": "#/components/schemas/ReplayScoreWeights"
+          },
+          "entry_score": {
+            "default": 65,
+            "maximum": 100.0,
+            "minimum": 50.0,
+            "multipleOf": 5.0,
+            "title": "Entry Score",
+            "type": "integer"
+          },
+          "exit_score": {
+            "default": 60,
+            "maximum": 95.0,
+            "minimum": 50.0,
+            "multipleOf": 5.0,
+            "title": "Exit Score",
+            "type": "integer"
+          },
+          "market_gate_mode": {
+            "$ref": "#/components/schemas/MarketGateMode",
+            "default": "BLOCK_NEW_ENTRIES_BELOW_SMA200"
+          },
+          "minimum_adv_multiplier": {
+            "default": 1.0,
+            "maximum": 2.0,
+            "minimum": 0.5,
+            "title": "Minimum Adv Multiplier",
+            "type": "number"
+          },
+          "peer_overrides": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ReplayPeerThreshold"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/PeerGroup"
+            },
+            "title": "Peer Overrides",
+            "type": "object"
+          },
+          "require_above_sma200": {
+            "default": true,
+            "title": "Require Above Sma200",
+            "type": "boolean"
+          },
+          "require_absolute_liquidity": {
+            "default": true,
+            "title": "Require Absolute Liquidity",
+            "type": "boolean"
+          },
+          "require_order_size_liquidity": {
+            "default": true,
+            "title": "Require Order Size Liquidity",
+            "type": "boolean"
+          },
+          "require_positive_six_month": {
+            "default": true,
+            "title": "Require Positive Six Month",
+            "type": "boolean"
+          }
+        },
+        "title": "ReplaySignalConfig",
+        "type": "object"
+      },
       "ReplaySleeveAttribution": {
         "properties": {
           "average_exposure": {
@@ -2063,6 +3039,191 @@
           "dividend_krw"
         ],
         "title": "ReplaySleeveAttribution",
+        "type": "object"
+      },
+      "ReplayStrategyConfig": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReplayDataConfig"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ReplayExecutionConfig"
+          },
+          "portfolio": {
+            "$ref": "#/components/schemas/ReplayPortfolioConfig"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/ReplayRiskConfig"
+          },
+          "signal": {
+            "$ref": "#/components/schemas/ReplaySignalConfig"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/ReplayValidationConfig"
+          },
+          "version": {
+            "default": "replay-strategy-v2.0.0",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ReplayStrategyConfig",
+        "type": "object"
+      },
+      "ReplaySuccessCriteria": {
+        "properties": {
+          "maximum_cagr_degradation_pp": {
+            "default": 0.0,
+            "title": "Maximum Cagr Degradation Pp",
+            "type": "number"
+          },
+          "maximum_mdd_degradation_pp": {
+            "default": 0.0,
+            "title": "Maximum Mdd Degradation Pp",
+            "type": "number"
+          },
+          "minimum_cagr_improvement_pp": {
+            "default": 0.0,
+            "title": "Minimum Cagr Improvement Pp",
+            "type": "number"
+          },
+          "minimum_cost_reduction_ratio": {
+            "default": 0.0,
+            "title": "Minimum Cost Reduction Ratio",
+            "type": "number"
+          },
+          "minimum_mdd_improvement_pp": {
+            "default": 0.0,
+            "title": "Minimum Mdd Improvement Pp",
+            "type": "number"
+          },
+          "minimum_sharpe_improvement": {
+            "default": 0.0,
+            "title": "Minimum Sharpe Improvement",
+            "type": "number"
+          }
+        },
+        "title": "ReplaySuccessCriteria",
+        "type": "object"
+      },
+      "ReplaySweepAxis": {
+        "properties": {
+          "path": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "values": {
+            "items": {},
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "path",
+          "values"
+        ],
+        "title": "ReplaySweepAxis",
+        "type": "object"
+      },
+      "ReplaySweepCreate": {
+        "properties": {
+          "axes": {
+            "items": {
+              "$ref": "#/components/schemas/ReplaySweepAxis"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Axes",
+            "type": "array"
+          },
+          "base_strategy": {
+            "$ref": "#/components/schemas/ReplayStrategyConfig"
+          },
+          "label": {
+            "default": "민감도 분석",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_strategy",
+          "axes"
+        ],
+        "title": "ReplaySweepCreate",
+        "type": "object"
+      },
+      "ReplaySweepResponse": {
+        "properties": {
+          "completed_units": {
+            "title": "Completed Units",
+            "type": "integer"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "progress_percent": {
+            "title": "Progress Percent",
+            "type": "number"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RunStatus"
+          },
+          "total_units": {
+            "title": "Total Units",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "experiment_id",
+          "status",
+          "stage",
+          "completed_units",
+          "total_units",
+          "progress_percent"
+        ],
+        "title": "ReplaySweepResponse",
         "type": "object"
       },
       "ReplayTradeAnalysis": {
@@ -2253,6 +3414,33 @@
           "net_pnl_krw"
         ],
         "title": "ReplayTradeStats",
+        "type": "object"
+      },
+      "ReplayValidationConfig": {
+        "properties": {
+          "walk_forward_step_years": {
+            "default": 1,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Walk Forward Step Years",
+            "type": "integer"
+          },
+          "walk_forward_test_years": {
+            "default": 1,
+            "maximum": 2.0,
+            "minimum": 1.0,
+            "title": "Walk Forward Test Years",
+            "type": "integer"
+          },
+          "walk_forward_train_years": {
+            "default": 3,
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Walk Forward Train Years",
+            "type": "integer"
+          }
+        },
+        "title": "ReplayValidationConfig",
         "type": "object"
       },
       "ResearchStatusResponse": {
@@ -2448,12 +3636,22 @@
         "title": "ResearchSyncResponse",
         "type": "object"
       },
+      "ReviewFrequency": {
+        "enum": [
+          "DAILY",
+          "WEEKLY",
+          "MONTHLY"
+        ],
+        "title": "ReviewFrequency",
+        "type": "string"
+      },
       "RunStatus": {
         "enum": [
           "QUEUED",
           "RUNNING",
           "SUCCEEDED",
-          "FAILED"
+          "FAILED",
+          "CANCELLED"
         ],
         "title": "RunStatus",
         "type": "string"
@@ -2940,6 +4138,14 @@
         "title": "SyncTrigger",
         "type": "string"
       },
+      "UniverseMode": {
+        "enum": [
+          "CURRENT_LISTED",
+          "POINT_IN_TIME"
+        ],
+        "title": "UniverseMode",
+        "type": "string"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3202,6 +4408,25 @@
       }
     },
     "/api/v1/forward/accounts": {
+      "get": {
+        "operationId": "list_forward_accounts_api_v1_forward_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Forward Accounts",
+        "tags": [
+          "forward-research"
+        ]
+      },
       "post": {
         "operationId": "create_forward_account_api_v1_forward_accounts_post",
         "requestBody": {
@@ -3258,6 +4483,48 @@
           }
         },
         "summary": "Current Forward Account",
+        "tags": [
+          "forward-research"
+        ]
+      }
+    },
+    "/api/v1/forward/accounts/{account_id}": {
+      "get": {
+        "operationId": "get_forward_account_api_v1_forward_accounts__account_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Forward Account",
         "tags": [
           "forward-research"
         ]
@@ -3576,6 +4843,326 @@
         ]
       }
     },
+    "/api/v1/research/experiments": {
+      "get": {
+        "operationId": "get_replay_experiments_api_v1_research_experiments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayExperimentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replay Experiments",
+        "tags": [
+          "replay-experiments"
+        ]
+      },
+      "post": {
+        "operationId": "create_replay_experiment_api_v1_research_experiments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayExperimentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayExperimentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Replay Experiment",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
+    "/api/v1/research/experiments/{experiment_id}": {
+      "get": {
+        "operationId": "get_replay_experiment_api_v1_research_experiments__experiment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayExperimentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replay Experiment",
+        "tags": [
+          "replay-experiments"
+        ]
+      },
+      "patch": {
+        "operationId": "update_replay_experiment_api_v1_research_experiments__experiment_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayExperimentPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayExperimentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Replay Experiment",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
+    "/api/v1/research/experiments/{experiment_id}/comparison": {
+      "get": {
+        "operationId": "get_replay_comparison_api_v1_research_experiments__experiment_id__comparison_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayComparisonResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replay Comparison",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
+    "/api/v1/research/experiments/{experiment_id}/runs": {
+      "post": {
+        "operationId": "add_replay_experiment_run_api_v1_research_experiments__experiment_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayExperimentRunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Replay Experiment Run",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
+    "/api/v1/research/experiments/{experiment_id}/sweeps": {
+      "post": {
+        "operationId": "create_replay_sweep_api_v1_research_experiments__experiment_id__sweeps_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "experiment_id",
+            "required": true,
+            "schema": {
+              "title": "Experiment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaySweepCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Replay Sweep",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
     "/api/v1/research/quality": {
       "get": {
         "operationId": "research_quality_api_v1_research_quality_get",
@@ -3814,6 +5401,27 @@
         ]
       }
     },
+    "/api/v1/research/replay-options": {
+      "get": {
+        "operationId": "get_replay_options_api_v1_research_replay_options_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayOptionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Replay Options",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
     "/api/v1/research/replays": {
       "post": {
         "operationId": "create_research_replay_api_v1_research_replays_post",
@@ -3943,6 +5551,100 @@
         ]
       }
     },
+    "/api/v1/research/replays/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_research_replay_api_v1_research_replays__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Research Replay",
+        "tags": [
+          "research-replays"
+        ]
+      }
+    },
+    "/api/v1/research/replays/{run_id}/promote": {
+      "post": {
+        "operationId": "promote_research_replay_api_v1_research_replays__run_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplayPromotionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForwardAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Research Replay",
+        "tags": [
+          "replay-experiments"
+        ]
+      }
+    },
     "/api/v1/research/status": {
       "get": {
         "operationId": "research_status_api_v1_research_status_get",
@@ -3961,6 +5663,48 @@
         "summary": "Research Status",
         "tags": [
           "research-sync"
+        ]
+      }
+    },
+    "/api/v1/research/sweeps/{run_id}": {
+      "get": {
+        "operationId": "get_replay_sweep_api_v1_research_sweeps__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplaySweepResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Replay Sweep",
+        "tags": [
+          "replay-experiments"
         ]
       }
     },

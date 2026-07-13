@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from quant_api.database import Base, RunRepository
 from quant_api.forward_repository import ForwardLedgerRepository
+from quant_core.enums import ForwardAccountType
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 
@@ -45,7 +46,7 @@ async def test_forward_account_is_unique_until_archived(tmp_path: Path) -> None:
 
     assert archived.status == "ARCHIVED"
     assert archived.active_slot is None
-    assert second.active_slot == "CURRENT"
+    assert second.active_slot == "BASELINE"
     await engine.dispose()
 
 
@@ -89,6 +90,46 @@ async def test_candidate_snapshot_retry_is_idempotent(tmp_path: Path) -> None:
     assert retried.id == first.id
     assert total == 1
     assert rows[0]["event_type"] == "BASELINE"
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_forward_slots_allow_one_baseline_and_three_experiments(tmp_path: Path) -> None:
+    engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'slots.db'}")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+    repository = ForwardLedgerRepository(session_factory)
+    weights = {"US_STOCK": 2500, "KR_STOCK": 2500, "US_ETF": 2500, "KR_ETF": 2500}
+    common = {
+        "weights": weights,
+        "baseline_data_version": "data-v1",
+        "baseline_as_of": date(2026, 7, 10),
+        "market_dates": {"US": "2026-07-09", "KR": "2026-07-10"},
+    }
+
+    baseline = await repository.create_account(**common)
+    experiments = [
+        await repository.create_account(
+            **common,
+            account_type=ForwardAccountType.EXPERIMENT,
+            name=f"실험 {index}",
+        )
+        for index in range(1, 4)
+    ]
+
+    assert baseline.active_slot == "BASELINE"
+    assert {item.active_slot for item in experiments} == {
+        "EXPERIMENT_1",
+        "EXPERIMENT_2",
+        "EXPERIMENT_3",
+    }
+    with pytest.raises(ValueError, match="세 개"):
+        await repository.create_account(
+            **common,
+            account_type=ForwardAccountType.EXPERIMENT,
+            name="초과",
+        )
     await engine.dispose()
 
 

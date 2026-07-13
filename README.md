@@ -11,8 +11,8 @@ Quant Trend Lab is an explainable trend-screening product for US and Korean stoc
 - Resumable ten-year local collection with exchange-universe snapshots and daily catch-up
 - Versioned data-quality gates, full-history repair, per-asset quarantine, and score traces
 - Server-side search, filtering, pagination, data-health states, and 65/60 candidate hysteresis
-- Public synthetic backtests plus local current-universe historical replay with reconciled cause analysis and an explicit survivorship-bias warning
-- Daily candidate-change history and a forward-only paper ledger that starts after account creation
+- Public synthetic backtests plus a local strategy lab with baseline/challenger comparison, validation, sensitivity sweeps, cause analysis, and an explicit survivorship-bias warning
+- Daily candidate-change history and forward-only baseline/experiment ledgers that start after account creation
 - Integer shares, separate KRW/USD cash, market-specific next-session fills, and explicit transaction costs
 - HTML, CSV, JSON, and Parquet result artifacts
 - Public guest limits: five new runs per IP per hour and one concurrent run
@@ -27,7 +27,7 @@ Quant Trend Lab is an explainable trend-screening product for US and Korean stoc
 | Runtime data | PostgreSQL 17, Valkey 8, Parquet, OCI Object Storage |
 | Operations | Docker Compose, Caddy, GitHub Actions, OCIR, OCI Resource Manager |
 
-The framework-independent engine is in `packages/quant-core`. Product and infrastructure decisions are documented in [architecture](docs/architecture.md), [Trend Score v1](docs/trend-score-v1.md), [data quality v1](docs/data-quality-v1.md), [portfolio strategy](docs/portfolio-strategy-v1.md), [data policy](docs/data-policy.md), and [OCI operations](docs/operations.md).
+The framework-independent engine is in `packages/quant-core`. Product and infrastructure decisions are documented in [architecture](docs/architecture.md), [Trend Score v1](docs/trend-score-v1.md), [strategy lab v2](docs/replay-strategy-lab-v2.md), [data quality v1](docs/data-quality-v1.md), [portfolio strategy](docs/portfolio-strategy-v1.md), [data policy](docs/data-policy.md), and [OCI operations](docs/operations.md).
 
 ## Local Development
 
@@ -89,7 +89,7 @@ Toss Securities Open API can be configured as an optional standby provider. It i
 
 The API catches up on startup, polls for completed Korean and US trading sessions, and resumes completed download batches after interruption. Before activation it repairs provider-detected price errors, validates raw bars and score invariants, and quarantines assets whose errors remain. Downloaded data and real-data results remain under `data/research`, are excluded from Git, and are never exposed by the public OCI deployment. See [local real-data operations](docs/local-research.md).
 
-Current-listed-security history is not a point-in-time universe. Local mode therefore exposes its ten-year result only as a **current-universe historical simulation with survivorship bias**, never as an official performance claim. The forward portfolio is stored separately and begins with the first completed weekly review after the user creates an account. See [historical replay and forward ledger](docs/replay-forward-v1.md) and [replay analysis](docs/replay-analysis-v1.md).
+Current-listed-security history is not a point-in-time universe. Local mode therefore exposes its historical result only as a **current-universe simulation with survivorship bias**, never as an official performance claim. The strategy lab supports one selected baseline, three challengers, continuous/independent validation, walk-forward windows, controlled two-axis sweeps, and promotion to one baseline plus three experimental forward accounts. Forward records stay separate from replay history and begin after account creation. See [strategy lab v2](docs/replay-strategy-lab-v2.md), [historical replay and forward ledger](docs/replay-forward-v1.md), and [replay analysis](docs/replay-analysis-v1.md).
 
 ## License
 

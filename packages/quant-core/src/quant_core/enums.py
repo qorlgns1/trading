@@ -45,11 +45,59 @@ class RunStatus(StrEnum):
     RUNNING = "RUNNING"
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 class RunKind(StrEnum):
     DEMO_BACKTEST = "DEMO_BACKTEST"
     REAL_REPLAY = "REAL_REPLAY"
+    REAL_REPLAY_V2 = "REAL_REPLAY_V2"
+    REPLAY_SWEEP = "REPLAY_SWEEP"
+
+
+class UniverseMode(StrEnum):
+    CURRENT_LISTED = "CURRENT_LISTED"
+    POINT_IN_TIME = "POINT_IN_TIME"
+
+
+class ReviewFrequency(StrEnum):
+    DAILY = "DAILY"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
+class PositionSizing(StrEnum):
+    EQUAL_SLOT = "EQUAL_SLOT"
+    INVERSE_VOLATILITY = "INVERSE_VOLATILITY"
+
+
+class ReplacementPolicy(StrEnum):
+    FILL_VACANCIES = "FILL_VACANCIES"
+    TOP_SCORE_REBALANCE = "TOP_SCORE_REBALANCE"
+
+
+class MarketGateMode(StrEnum):
+    BLOCK_NEW_ENTRIES_BELOW_SMA200 = "BLOCK_NEW_ENTRIES_BELOW_SMA200"
+    OFF = "OFF"
+
+
+class ExperimentObjective(StrEnum):
+    RETURN = "RETURN"
+    DRAWDOWN = "DRAWDOWN"
+    COST = "COST"
+    BALANCED = "BALANCED"
+
+
+class ExperimentRunRole(StrEnum):
+    BASELINE = "BASELINE"
+    CHALLENGER = "CHALLENGER"
+    PARETO = "PARETO"
+    SWEEP = "SWEEP"
+
+
+class ForwardAccountType(StrEnum):
+    BASELINE = "BASELINE"
+    EXPERIMENT = "EXPERIMENT"
 
 
 class CandidateEventType(StrEnum):

@@ -12,6 +12,7 @@ from quant_core.enums import (
     PeerGroup,
     QualityResolution,
     QualitySeverity,
+    RunKind,
     RunStatus,
     SyncTrigger,
 )
@@ -28,6 +29,18 @@ from quant_api.database import create_schema
 from quant_api.forward import forward_service
 from quant_api.provider_admin import provider_admin_service
 from quant_api.rate_limit import RateLimitExceeded, client_key, create_rate_limiter
+from quant_api.replay_experiments import (
+    add_experiment_run,
+    create_experiment,
+    create_sweep,
+    execute_sweep,
+    experiment_comparison,
+    get_experiment,
+    get_sweep,
+    list_experiments,
+    patch_experiment,
+    replay_options,
+)
 from quant_api.research import LocalFeatureUnavailable, research_service
 from quant_api.research_replays import (
     artifact_responses as replay_artifact_responses,
@@ -54,6 +67,7 @@ from quant_api.schemas import (
     CandidateHistoryResponse,
     ForwardAccountCreate,
     ForwardAccountResponse,
+    ForwardAccountsResponse,
     ForwardActivityResponse,
     MetaResponse,
     PaperPortfolioResponse,
@@ -62,8 +76,18 @@ from quant_api.schemas import (
     QualityIssuesResponse,
     QualityReportResponse,
     ReplayAccepted,
+    ReplayComparisonResponse,
     ReplayCreate,
+    ReplayExperimentCreate,
+    ReplayExperimentListResponse,
+    ReplayExperimentPatch,
+    ReplayExperimentResponse,
+    ReplayExperimentRunCreate,
+    ReplayOptionsResponse,
+    ReplayPromotionCreate,
     ReplayResponse,
+    ReplaySweepCreate,
+    ReplaySweepResponse,
     ResearchStatusResponse,
     ResearchSyncAccepted,
     ResearchSyncResponse,
@@ -73,6 +97,24 @@ from quant_api.settings import get_settings
 
 settings = get_settings()
 rate_limiter = create_rate_limiter(settings)
+
+
+def _enqueue_replay(background_tasks: BackgroundTasks, run_id: str) -> None:
+    if settings.backtest_eager:
+        background_tasks.add_task(execute_replay, run_id)
+    else:
+        from quant_api.worker import run_replay_task
+
+        run_replay_task.delay(run_id)
+
+
+def _enqueue_sweep(background_tasks: BackgroundTasks, run_id: str) -> None:
+    if settings.backtest_eager:
+        background_tasks.add_task(execute_sweep, run_id)
+    else:
+        from quant_api.worker import run_sweep_task
+
+        run_sweep_task.delay(run_id)
 
 
 @asynccontextmanager
@@ -97,7 +139,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["Content-Type"],
 )
 
@@ -274,7 +316,7 @@ async def create_research_replay(
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     if not cached:
-        background_tasks.add_task(execute_replay, model.id)
+        _enqueue_replay(background_tasks, model.id)
     return ReplayAccepted(
         run_id=model.id,
         status=RunStatus.SUCCEEDED if cached else RunStatus.QUEUED,
@@ -291,7 +333,10 @@ async def get_research_replay(run_id: str) -> ReplayResponse:
     if settings.app_mode != "local_research":
         raise PermissionError("실데이터 과거 재생은 local_research 모드에서만 사용할 수 있습니다.")
     model = await replay_repository.get(run_id)
-    if model is None or model.run_kind != "REAL_REPLAY":
+    if model is None or model.run_kind not in {
+        RunKind.REAL_REPLAY.value,
+        RunKind.REAL_REPLAY_V2.value,
+    }:
         raise HTTPException(status_code=404, detail="과거 시뮬레이션 실행을 찾을 수 없습니다.")
     return replay_response_from_model(model)
 
@@ -305,11 +350,182 @@ async def get_research_replay_artifacts(run_id: str) -> list[ArtifactResponse]:
     if settings.app_mode != "local_research":
         raise PermissionError("실데이터 과거 재생은 local_research 모드에서만 사용할 수 있습니다.")
     model = await replay_repository.get(run_id)
-    if model is None or model.run_kind != "REAL_REPLAY":
+    if model is None or model.run_kind not in {
+        RunKind.REAL_REPLAY.value,
+        RunKind.REAL_REPLAY_V2.value,
+    }:
         raise HTTPException(status_code=404, detail="과거 시뮬레이션 실행을 찾을 수 없습니다.")
     return [
         ArtifactResponse.model_validate(item) for item in await replay_artifact_responses(run_id)
     ]
+
+
+@app.post(
+    "/api/v1/research/replays/{run_id}/cancel",
+    response_model=ReplayAccepted,
+    tags=["research-replays"],
+)
+async def cancel_research_replay(run_id: str) -> ReplayAccepted:
+    if settings.app_mode != "local_research":
+        raise PermissionError("전략 실험실은 local_research 모드에서만 사용할 수 있습니다.")
+    existing = await replay_repository.get(run_id)
+    if existing is None or existing.run_kind not in {
+        RunKind.REAL_REPLAY.value,
+        RunKind.REAL_REPLAY_V2.value,
+        RunKind.REPLAY_SWEEP.value,
+    }:
+        raise HTTPException(status_code=404, detail="실행을 찾을 수 없습니다.")
+    try:
+        model = await replay_repository.request_cancel(run_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실행을 찾을 수 없습니다.") from error
+    return ReplayAccepted(run_id=model.id, status=RunStatus(model.status), cached=False)
+
+
+@app.post(
+    "/api/v1/research/replays/{run_id}/promote",
+    response_model=ForwardAccountResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["replay-experiments"],
+)
+async def promote_research_replay(
+    run_id: str, payload: ReplayPromotionCreate
+) -> ForwardAccountResponse:
+    try:
+        return await forward_service.promote_replay(run_id, payload)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get(
+    "/api/v1/research/replay-options",
+    response_model=ReplayOptionsResponse,
+    tags=["replay-experiments"],
+)
+async def get_replay_options() -> ReplayOptionsResponse:
+    return replay_options()
+
+
+@app.post(
+    "/api/v1/research/experiments",
+    response_model=ReplayExperimentResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["replay-experiments"],
+)
+async def create_replay_experiment(
+    payload: ReplayExperimentCreate,
+    background_tasks: BackgroundTasks,
+) -> ReplayExperimentResponse:
+    try:
+        response, run_ids = await create_experiment(payload)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    for run_id in run_ids:
+        _enqueue_replay(background_tasks, run_id)
+    return response
+
+
+@app.get(
+    "/api/v1/research/experiments",
+    response_model=ReplayExperimentListResponse,
+    tags=["replay-experiments"],
+)
+async def get_replay_experiments(include_archived: bool = False) -> ReplayExperimentListResponse:
+    return await list_experiments(include_archived=include_archived)
+
+
+@app.get(
+    "/api/v1/research/experiments/{experiment_id}",
+    response_model=ReplayExperimentResponse,
+    tags=["replay-experiments"],
+)
+async def get_replay_experiment(experiment_id: str) -> ReplayExperimentResponse:
+    try:
+        return await get_experiment(experiment_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실험을 찾을 수 없습니다.") from error
+
+
+@app.patch(
+    "/api/v1/research/experiments/{experiment_id}",
+    response_model=ReplayExperimentResponse,
+    tags=["replay-experiments"],
+)
+async def update_replay_experiment(
+    experiment_id: str, payload: ReplayExperimentPatch
+) -> ReplayExperimentResponse:
+    try:
+        return await patch_experiment(experiment_id, payload)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실험을 찾을 수 없습니다.") from error
+
+
+@app.post(
+    "/api/v1/research/experiments/{experiment_id}/runs",
+    response_model=ReplayAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["replay-experiments"],
+)
+async def add_replay_experiment_run(
+    experiment_id: str,
+    payload: ReplayExperimentRunCreate,
+    background_tasks: BackgroundTasks,
+) -> ReplayAccepted:
+    try:
+        response, cached = await add_experiment_run(experiment_id, payload)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실험을 찾을 수 없습니다.") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if not cached:
+        _enqueue_replay(background_tasks, response.run_id)
+    return response
+
+
+@app.post(
+    "/api/v1/research/experiments/{experiment_id}/sweeps",
+    response_model=ReplayAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["replay-experiments"],
+)
+async def create_replay_sweep(
+    experiment_id: str,
+    payload: ReplaySweepCreate,
+    background_tasks: BackgroundTasks,
+) -> ReplayAccepted:
+    try:
+        response, cached = await create_sweep(experiment_id, payload)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실험을 찾을 수 없습니다.") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if not cached:
+        _enqueue_sweep(background_tasks, response.run_id)
+    return response
+
+
+@app.get(
+    "/api/v1/research/sweeps/{run_id}",
+    response_model=ReplaySweepResponse,
+    tags=["replay-experiments"],
+)
+async def get_replay_sweep(run_id: str) -> ReplaySweepResponse:
+    try:
+        return await get_sweep(run_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="민감도 분석을 찾을 수 없습니다.") from error
+
+
+@app.get(
+    "/api/v1/research/experiments/{experiment_id}/comparison",
+    response_model=ReplayComparisonResponse,
+    tags=["replay-experiments"],
+)
+async def get_replay_comparison(experiment_id: str) -> ReplayComparisonResponse:
+    try:
+        return await experiment_comparison(experiment_id)
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail="실험을 찾을 수 없습니다.") from error
 
 
 @app.get(
@@ -349,6 +565,15 @@ async def create_forward_account(payload: ForwardAccountCreate) -> ForwardAccoun
 
 
 @app.get(
+    "/api/v1/forward/accounts",
+    response_model=ForwardAccountsResponse,
+    tags=["forward-research"],
+)
+async def list_forward_accounts() -> ForwardAccountsResponse:
+    return await forward_service.accounts()
+
+
+@app.get(
     "/api/v1/forward/accounts/current",
     response_model=ForwardAccountResponse,
     tags=["forward-research"],
@@ -357,6 +582,18 @@ async def current_forward_account() -> ForwardAccountResponse:
     account = await forward_service.current_account()
     if account is None:
         raise HTTPException(status_code=404, detail="활성 포워드 계좌가 없습니다.")
+    return account
+
+
+@app.get(
+    "/api/v1/forward/accounts/{account_id}",
+    response_model=ForwardAccountResponse,
+    tags=["forward-research"],
+)
+async def get_forward_account(account_id: str) -> ForwardAccountResponse:
+    account = await forward_service.get_account(account_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="포워드 계좌를 찾을 수 없습니다.")
     return account
 
 
@@ -431,9 +668,7 @@ async def asset_detail(asset_id: str) -> AssetDetail:
     return detail
 
 
-@app.get(
-    "/api/v1/paper-portfolio", response_model=PaperPortfolioResponse, tags=["portfolio"]
-)
+@app.get("/api/v1/paper-portfolio", response_model=PaperPortfolioResponse, tags=["portfolio"])
 async def paper_portfolio() -> PaperPortfolioResponse:
     return research_service.paper_portfolio()
 
@@ -482,9 +717,7 @@ async def create_backtest(
     return BacktestAccepted(run_id=model.id, status=RunStatus.QUEUED)
 
 
-@app.get(
-    "/api/v1/backtests/{run_id}", response_model=BacktestResponse, tags=["backtests"]
-)
+@app.get("/api/v1/backtests/{run_id}", response_model=BacktestResponse, tags=["backtests"])
 async def get_backtest(run_id: str) -> BacktestResponse:
     model = await repository.get(run_id)
     if model is None:

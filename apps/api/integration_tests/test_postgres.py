@@ -13,7 +13,7 @@ from quant_api.forward_repository import ForwardLedgerRepository
 from quant_api.provider_admin import ProviderConnectionRepository
 from quant_api.research_repository import ResearchRepository
 from quant_api.schemas import ProviderConnectionState, ProviderId
-from quant_core.enums import RunStatus, SyncTrigger
+from quant_core.enums import ForwardAccountType, RunStatus, SyncTrigger
 from sqlalchemy import inspect, select, text
 
 pytestmark = pytest.mark.integration
@@ -34,6 +34,8 @@ APPLICATION_TABLES = {
     "paper_cash",
     "paper_valuations",
     "provider_connection_status",
+    "replay_experiments",
+    "replay_experiment_runs",
 }
 
 
@@ -43,7 +45,7 @@ async def _truncate_application_tables() -> None:
             text(
                 "TRUNCATE TABLE artifacts, backtest_runs, research_sync_runs, "
                 "universe_snapshots, candidate_snapshots, paper_accounts, "
-                "provider_connection_status "
+                "provider_connection_status, replay_experiments "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -71,7 +73,7 @@ async def test_alembic_schema_is_current_on_postgresql() -> None:
 
     assert engine.dialect.name == "postgresql"
     assert tables >= APPLICATION_TABLES
-    assert revision == "20260711_0004"
+    assert revision == "20260712_0005"
 
 
 @pytest.mark.asyncio
@@ -177,7 +179,32 @@ async def test_forward_account_slot_is_enforced_on_postgresql() -> None:
         baseline_as_of=date(2026, 7, 17),
         market_dates={"US": "2026-07-16", "KR": "2026-07-17"},
     )
-    assert second.active_slot == "CURRENT"
+    assert second.active_slot == "BASELINE"
+    experiments = [
+        await repository.create_account(
+            weights=weights,
+            baseline_data_version="data-v2",
+            baseline_as_of=date(2026, 7, 17),
+            market_dates={"US": "2026-07-16", "KR": "2026-07-17"},
+            account_type=ForwardAccountType.EXPERIMENT,
+            name=f"실험 {index}",
+        )
+        for index in range(1, 4)
+    ]
+    assert {item.active_slot for item in experiments} == {
+        "EXPERIMENT_1",
+        "EXPERIMENT_2",
+        "EXPERIMENT_3",
+    }
+    with pytest.raises(ValueError, match="세 개"):
+        await repository.create_account(
+            weights=weights,
+            baseline_data_version="data-v2",
+            baseline_as_of=date(2026, 7, 17),
+            market_dates={"US": "2026-07-16", "KR": "2026-07-17"},
+            account_type=ForwardAccountType.EXPERIMENT,
+            name="초과",
+        )
 
 
 @pytest.mark.asyncio

@@ -113,7 +113,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Forward Accounts */
+        get: operations["list_forward_accounts_api_v1_forward_accounts_get"];
         put?: never;
         /** Create Forward Account */
         post: operations["create_forward_account_api_v1_forward_accounts_post"];
@@ -132,6 +133,23 @@ export interface paths {
         };
         /** Current Forward Account */
         get: operations["current_forward_account_api_v1_forward_accounts_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/forward/accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Forward Account */
+        get: operations["get_forward_account_api_v1_forward_accounts__account_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -242,6 +260,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/research/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay Experiments */
+        get: operations["get_replay_experiments_api_v1_research_experiments_get"];
+        put?: never;
+        /** Create Replay Experiment */
+        post: operations["create_replay_experiment_api_v1_research_experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/experiments/{experiment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay Experiment */
+        get: operations["get_replay_experiment_api_v1_research_experiments__experiment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Replay Experiment */
+        patch: operations["update_replay_experiment_api_v1_research_experiments__experiment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/research/experiments/{experiment_id}/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay Comparison */
+        get: operations["get_replay_comparison_api_v1_research_experiments__experiment_id__comparison_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/experiments/{experiment_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Replay Experiment Run */
+        post: operations["add_replay_experiment_run_api_v1_research_experiments__experiment_id__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/experiments/{experiment_id}/sweeps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Replay Sweep */
+        post: operations["create_replay_sweep_api_v1_research_experiments__experiment_id__sweeps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/research/quality": {
         parameters: {
             query?: never;
@@ -285,6 +390,23 @@ export interface paths {
         };
         /** Research Quality Issues Csv */
         get: operations["research_quality_issues_csv_api_v1_research_quality_issues_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/replay-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay Options */
+        get: operations["get_replay_options_api_v1_research_replay_options_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -344,6 +466,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/research/replays/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Research Replay */
+        post: operations["cancel_research_replay_api_v1_research_replays__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/replays/{run_id}/promote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Promote Research Replay */
+        post: operations["promote_research_replay_api_v1_research_replays__run_id__promote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/research/status": {
         parameters: {
             query?: never;
@@ -353,6 +509,23 @@ export interface paths {
         };
         /** Research Status */
         get: operations["research_status_api_v1_research_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/research/sweeps/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Replay Sweep */
+        get: operations["get_replay_sweep_api_v1_research_sweeps__run_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -587,14 +760,31 @@ export interface components {
          * @enum {string}
          */
         DataStatus: "READY" | "INSUFFICIENT_HISTORY" | "UNSUPPORTED" | "DOWNLOAD_FAILED" | "STALE" | "INVALID_DATA";
+        /**
+         * ExperimentObjective
+         * @enum {string}
+         */
+        ExperimentObjective: "RETURN" | "DRAWDOWN" | "COST" | "BALANCED";
+        /**
+         * ExperimentRunRole
+         * @enum {string}
+         */
+        ExperimentRunRole: "BASELINE" | "CHALLENGER" | "PARETO" | "SWEEP";
         /** ForwardAccountCreate */
         ForwardAccountCreate: {
+            /**
+             * Name
+             * @default 기준 포트폴리오
+             */
+            name: string;
             sleeve_weights_bps?: components["schemas"]["SleeveWeights"];
         };
         /** ForwardAccountResponse */
         ForwardAccountResponse: {
             /** Account Id */
             account_id: string;
+            /** @default BASELINE */
+            account_type: components["schemas"]["ForwardAccountType"];
             /** Annualized Metrics */
             annualized_metrics?: {
                 [key: string]: number;
@@ -605,6 +795,10 @@ export interface components {
             baseline_data_version: string;
             /** Cash Krw */
             cash_krw: number;
+            /** Common Period Metrics */
+            common_period_metrics?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Created At
              * Format: date-time
@@ -628,6 +822,11 @@ export interface components {
             };
             /** Max Drawdown */
             max_drawdown: number;
+            /**
+             * Name
+             * @default 기준 포트폴리오
+             */
+            name: string;
             /** Observation Count */
             observation_count: number;
             /** Pending Orders */
@@ -644,11 +843,35 @@ export interface components {
             sleeve_weights_bps: {
                 [key: string]: number;
             };
+            /** Source Experiment Id */
+            source_experiment_id?: string | null;
+            /** Source Run Id */
+            source_run_id?: string | null;
             /** Started At */
             started_at?: string | null;
             status: components["schemas"]["PaperAccountStatus"];
+            /** Strategy Config */
+            strategy_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Strategy Config Hash */
+            strategy_config_hash?: string | null;
             /** Warnings */
             warnings?: string[];
+        };
+        /**
+         * ForwardAccountType
+         * @enum {string}
+         */
+        ForwardAccountType: "BASELINE" | "EXPERIMENT";
+        /** ForwardAccountsResponse */
+        ForwardAccountsResponse: {
+            /** Accounts */
+            accounts?: components["schemas"]["ForwardAccountResponse"][];
+            /** Common Start Date */
+            common_start_date?: string | null;
+            /** Total */
+            total: number;
         };
         /** ForwardActivityResponse */
         ForwardActivityResponse: {
@@ -672,6 +895,11 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * MarketGateMode
+         * @enum {string}
+         */
+        MarketGateMode: "BLOCK_NEW_ENTRIES_BELOW_SMA200" | "OFF";
         /** MetaResponse */
         MetaResponse: {
             /** App Mode */
@@ -741,6 +969,11 @@ export interface components {
          * @enum {string}
          */
         PeerGroup: "US_STOCK" | "KR_KOSPI" | "KR_KOSDAQ" | "US_EQUITY_ETF" | "KR_DOMESTIC_EQUITY_ETF" | "KR_OVERSEAS_EQUITY_ETF";
+        /**
+         * PositionSizing
+         * @enum {string}
+         */
+        PositionSizing: "EQUAL_SLOT" | "INVERSE_VOLATILITY";
         /**
          * ProviderConnectionState
          * @enum {string}
@@ -905,6 +1138,11 @@ export interface components {
             /** Warning Issues */
             warning_issues: number;
         };
+        /**
+         * ReplacementPolicy
+         * @enum {string}
+         */
+        ReplacementPolicy: "FILL_VACANCIES" | "TOP_SCORE_REBALANCE";
         /** ReplayAccepted */
         ReplayAccepted: {
             /**
@@ -935,6 +1173,21 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** ReplayComparisonResponse */
+        ReplayComparisonResponse: {
+            /** Baseline Run Id */
+            baseline_run_id?: string | null;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Runs */
+            runs?: {
+                [key: string]: unknown;
+            }[];
+            /** Success Assessments */
+            success_assessments?: {
+                [key: string]: unknown;
+            }[];
+        };
         /** ReplayCostSummary */
         ReplayCostSummary: {
             /** Compounded Cost Drag Krw */
@@ -950,7 +1203,30 @@ export interface components {
         };
         /** ReplayCreate */
         ReplayCreate: {
-            sleeve_weights_bps?: components["schemas"]["SleeveWeights"];
+            sleeve_weights_bps?: components["schemas"]["SleeveWeights"] | null;
+            strategy?: components["schemas"]["ReplayStrategyConfig"] | null;
+        };
+        /** ReplayDataConfig */
+        ReplayDataConfig: {
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Peer Groups */
+            peer_groups?: components["schemas"]["PeerGroup"][];
+            /**
+             * Split Date
+             * Format: date
+             */
+            split_date: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** @default CURRENT_LISTED */
+            universe_mode: components["schemas"]["UniverseMode"];
         };
         /** ReplayDrawdownPoint */
         ReplayDrawdownPoint: {
@@ -977,6 +1253,163 @@ export interface components {
             no_cost_portfolio?: number | null;
             /** Portfolio */
             portfolio: number;
+        };
+        /** ReplayExecutionConfig */
+        ReplayExecutionConfig: {
+            /**
+             * Execution Delay Sessions
+             * @default 1
+             */
+            execution_delay_sessions: number;
+            /**
+             * Initial Fx Cost
+             * @default 0.0025
+             */
+            initial_fx_cost: number;
+            /**
+             * Kr Buy Cost
+             * @default 0.0025
+             */
+            kr_buy_cost: number;
+            /**
+             * Kr Sell Cost
+             * @default 0.0025
+             */
+            kr_sell_cost: number;
+            /** @default WEEKLY */
+            review_frequency: components["schemas"]["ReviewFrequency"];
+            /**
+             * Slippage Bps
+             * @default 0
+             */
+            slippage_bps: number;
+            /**
+             * Us Buy Cost
+             * @default 0.0015
+             */
+            us_buy_cost: number;
+            /**
+             * Us Sell Cost
+             * @default 0.0015
+             */
+            us_sell_cost: number;
+        };
+        /** ReplayExperimentCreate */
+        ReplayExperimentCreate: {
+            /**
+             * Baseline Label
+             * @default 기준 전략
+             */
+            baseline_label: string;
+            baseline_strategy: components["schemas"]["ReplayStrategyConfig"];
+            /** Hypothesis */
+            hypothesis: string;
+            /** Name */
+            name: string;
+            objective: components["schemas"]["ExperimentObjective"];
+            success_criteria?: components["schemas"]["ReplaySuccessCriteria"] | null;
+        };
+        /** ReplayExperimentListResponse */
+        ReplayExperimentListResponse: {
+            /** Items */
+            items: components["schemas"]["ReplayExperimentSummary"][];
+            /** Total */
+            total: number;
+        };
+        /** ReplayExperimentPatch */
+        ReplayExperimentPatch: {
+            /** Archived */
+            archived?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** ReplayExperimentResponse */
+        ReplayExperimentResponse: {
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Data Version */
+            data_version: string;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /** Name */
+            name: string;
+            /** Notes */
+            notes?: string | null;
+            objective: components["schemas"]["ExperimentObjective"];
+            period: components["schemas"]["ReplayDataConfig"];
+            /**
+             * Run Count
+             * @default 0
+             */
+            run_count: number;
+            /** Runs */
+            runs?: {
+                [key: string]: unknown;
+            }[];
+            /** Status */
+            status: string;
+            success_criteria: components["schemas"]["ReplaySuccessCriteria"];
+            universe_mode: components["schemas"]["UniverseMode"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ReplayExperimentRunCreate */
+        ReplayExperimentRunCreate: {
+            /** Label */
+            label: string;
+            /** @default CHALLENGER */
+            role: components["schemas"]["ExperimentRunRole"];
+            strategy: components["schemas"]["ReplayStrategyConfig"];
+        };
+        /** ReplayExperimentSummary */
+        ReplayExperimentSummary: {
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Data Version */
+            data_version: string;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /** Name */
+            name: string;
+            objective: components["schemas"]["ExperimentObjective"];
+            /**
+             * Run Count
+             * @default 0
+             */
+            run_count: number;
+            /** Status */
+            status: string;
+            universe_mode: components["schemas"]["UniverseMode"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** ReplayGapAnalysis */
         ReplayGapAnalysis: {
@@ -1045,6 +1478,70 @@ export interface components {
             /** Review Count */
             review_count: number;
         };
+        /** ReplayOptionsResponse */
+        ReplayOptionsResponse: {
+            /** Data Version */
+            data_version: string;
+            default_strategy: components["schemas"]["ReplayStrategyConfig"];
+            /** Limits */
+            limits: {
+                [key: string]: unknown;
+            };
+            /**
+             * Raw History End
+             * Format: date
+             */
+            raw_history_end: string;
+            /**
+             * Raw History Start
+             * Format: date
+             */
+            raw_history_start: string;
+            /** Supports Point In Time */
+            supports_point_in_time: boolean;
+            /** Universe Modes */
+            universe_modes: components["schemas"]["UniverseMode"][];
+        };
+        /** ReplayPeerSlots */
+        ReplayPeerSlots: {
+            /**
+             * Kr Domestic Equity Etf
+             * @default 2
+             */
+            kr_domestic_equity_etf: number;
+            /**
+             * Kr Kosdaq
+             * @default 1
+             */
+            kr_kosdaq: number;
+            /**
+             * Kr Kospi
+             * @default 2
+             */
+            kr_kospi: number;
+            /**
+             * Kr Overseas Equity Etf
+             * @default 1
+             */
+            kr_overseas_equity_etf: number;
+            /**
+             * Us Equity Etf
+             * @default 3
+             */
+            us_equity_etf: number;
+            /**
+             * Us Stock
+             * @default 3
+             */
+            us_stock: number;
+        };
+        /** ReplayPeerThreshold */
+        ReplayPeerThreshold: {
+            /** Entry Score */
+            entry_score: number;
+            /** Exit Score */
+            exit_score: number;
+        };
         /** ReplayPeriod */
         ReplayPeriod: {
             /** Average Exposure */
@@ -1066,6 +1563,25 @@ export interface components {
             /** Trade Count */
             trade_count?: number | null;
         };
+        /** ReplayPortfolioConfig */
+        ReplayPortfolioConfig: {
+            /**
+             * Initial Capital Krw
+             * @default 50000000
+             */
+            initial_capital_krw: number;
+            peer_group_slots?: components["schemas"]["ReplayPeerSlots"];
+            /** @default EQUAL_SLOT */
+            position_sizing: components["schemas"]["PositionSizing"];
+            /** @default FILL_VACANCIES */
+            replacement_policy: components["schemas"]["ReplacementPolicy"];
+            /**
+             * Replacement Score Gap
+             * @default 5
+             */
+            replacement_score_gap: number;
+            sleeve_weights_bps?: components["schemas"]["SleeveWeights"];
+        };
         /** ReplayPosition */
         ReplayPosition: {
             /** Asset Id */
@@ -1084,6 +1600,14 @@ export interface components {
             sleeve: components["schemas"]["Sleeve"];
             /** Symbol */
             symbol: string;
+        };
+        /** ReplayPromotionCreate */
+        ReplayPromotionCreate: {
+            account_type: components["schemas"]["ForwardAccountType"];
+            /** Experiment Id */
+            experiment_id?: string | null;
+            /** Name */
+            name: string;
         };
         /** ReplayResponse */
         ReplayResponse: {
@@ -1161,8 +1685,31 @@ export interface components {
              * Format: date
              */
             started_on: string;
+            /** Strategy Config */
+            strategy_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Stress Tests */
+            stress_tests?: {
+                [key: string]: unknown;
+            } | null;
+            /** Validation */
+            validation?: {
+                [key: string]: unknown;
+            } | null;
+            /** Walk Forward */
+            walk_forward?: {
+                [key: string]: unknown;
+            } | null;
             /** Warnings */
             warnings?: string[];
+        };
+        /** ReplayRiskConfig */
+        ReplayRiskConfig: {
+            /** Fixed Stop Loss */
+            fixed_stop_loss?: number | null;
+            /** Trailing Stop Loss */
+            trailing_stop_loss?: number | null;
         };
         /** ReplayRoundTrip */
         ReplayRoundTrip: {
@@ -1212,6 +1759,84 @@ export interface components {
             /** Symbol */
             symbol: string;
         };
+        /** ReplayScoreWeights */
+        ReplayScoreWeights: {
+            /**
+             * Absolute Momentum
+             * @default 2500
+             */
+            absolute_momentum: number;
+            /**
+             * High Proximity
+             * @default 1000
+             */
+            high_proximity: number;
+            /**
+             * Long Term Trend
+             * @default 3000
+             */
+            long_term_trend: number;
+            /**
+             * Relative Strength
+             * @default 2000
+             */
+            relative_strength: number;
+            /**
+             * Trading Activity
+             * @default 500
+             */
+            trading_activity: number;
+            /**
+             * Volatility Stability
+             * @default 1000
+             */
+            volatility_stability: number;
+        };
+        /** ReplaySignalConfig */
+        ReplaySignalConfig: {
+            component_weights_bps?: components["schemas"]["ReplayScoreWeights"];
+            /**
+             * Entry Score
+             * @default 65
+             */
+            entry_score: number;
+            /**
+             * Exit Score
+             * @default 60
+             */
+            exit_score: number;
+            /** @default BLOCK_NEW_ENTRIES_BELOW_SMA200 */
+            market_gate_mode: components["schemas"]["MarketGateMode"];
+            /**
+             * Minimum Adv Multiplier
+             * @default 1
+             */
+            minimum_adv_multiplier: number;
+            /** Peer Overrides */
+            peer_overrides?: {
+                [key: string]: components["schemas"]["ReplayPeerThreshold"];
+            };
+            /**
+             * Require Above Sma200
+             * @default true
+             */
+            require_above_sma200: boolean;
+            /**
+             * Require Absolute Liquidity
+             * @default true
+             */
+            require_absolute_liquidity: boolean;
+            /**
+             * Require Order Size Liquidity
+             * @default true
+             */
+            require_order_size_liquidity: boolean;
+            /**
+             * Require Positive Six Month
+             * @default true
+             */
+            require_positive_six_month: boolean;
+        };
         /** ReplaySleeveAttribution */
         ReplaySleeveAttribution: {
             /** Average Exposure */
@@ -1233,6 +1858,93 @@ export interface components {
             sleeve: components["schemas"]["Sleeve"];
             /** Trade Count */
             trade_count: number;
+        };
+        /** ReplayStrategyConfig */
+        ReplayStrategyConfig: {
+            data: components["schemas"]["ReplayDataConfig"];
+            execution?: components["schemas"]["ReplayExecutionConfig"];
+            portfolio?: components["schemas"]["ReplayPortfolioConfig"];
+            risk?: components["schemas"]["ReplayRiskConfig"];
+            signal?: components["schemas"]["ReplaySignalConfig"];
+            validation?: components["schemas"]["ReplayValidationConfig"];
+            /**
+             * Version
+             * @default replay-strategy-v2.0.0
+             */
+            version: string;
+        };
+        /** ReplaySuccessCriteria */
+        ReplaySuccessCriteria: {
+            /**
+             * Maximum Cagr Degradation Pp
+             * @default 0
+             */
+            maximum_cagr_degradation_pp: number;
+            /**
+             * Maximum Mdd Degradation Pp
+             * @default 0
+             */
+            maximum_mdd_degradation_pp: number;
+            /**
+             * Minimum Cagr Improvement Pp
+             * @default 0
+             */
+            minimum_cagr_improvement_pp: number;
+            /**
+             * Minimum Cost Reduction Ratio
+             * @default 0
+             */
+            minimum_cost_reduction_ratio: number;
+            /**
+             * Minimum Mdd Improvement Pp
+             * @default 0
+             */
+            minimum_mdd_improvement_pp: number;
+            /**
+             * Minimum Sharpe Improvement
+             * @default 0
+             */
+            minimum_sharpe_improvement: number;
+        };
+        /** ReplaySweepAxis */
+        ReplaySweepAxis: {
+            /** Path */
+            path: string;
+            /** Values */
+            values: unknown[];
+        };
+        /** ReplaySweepCreate */
+        ReplaySweepCreate: {
+            /** Axes */
+            axes: components["schemas"]["ReplaySweepAxis"][];
+            base_strategy: components["schemas"]["ReplayStrategyConfig"];
+            /**
+             * Label
+             * @default 민감도 분석
+             */
+            label: string;
+        };
+        /** ReplaySweepResponse */
+        ReplaySweepResponse: {
+            /** Completed Units */
+            completed_units: number;
+            /** Error Message */
+            error_message?: string | null;
+            /** Experiment Id */
+            experiment_id: string;
+            /** Progress Percent */
+            progress_percent: number;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Run Id */
+            run_id: string;
+            /** Stage */
+            stage: string;
+            status: components["schemas"]["RunStatus"];
+            /** Total Units */
+            total_units: number;
         };
         /** ReplayTradeAnalysis */
         ReplayTradeAnalysis: {
@@ -1294,6 +2006,24 @@ export interface components {
             profit_factor: number;
             /** Win Rate */
             win_rate: number;
+        };
+        /** ReplayValidationConfig */
+        ReplayValidationConfig: {
+            /**
+             * Walk Forward Step Years
+             * @default 1
+             */
+            walk_forward_step_years: number;
+            /**
+             * Walk Forward Test Years
+             * @default 1
+             */
+            walk_forward_test_years: number;
+            /**
+             * Walk Forward Train Years
+             * @default 3
+             */
+            walk_forward_train_years: number;
         };
         /** ResearchStatusResponse */
         ResearchStatusResponse: {
@@ -1360,10 +2090,15 @@ export interface components {
             updated_at: string;
         };
         /**
+         * ReviewFrequency
+         * @enum {string}
+         */
+        ReviewFrequency: "DAILY" | "WEEKLY" | "MONTHLY";
+        /**
          * RunStatus
          * @enum {string}
          */
-        RunStatus: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+        RunStatus: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
         /** ScoreComponents */
         ScoreComponents: {
             /** Absolute Momentum */
@@ -1535,6 +2270,11 @@ export interface components {
          * @enum {string}
          */
         SyncTrigger: "STARTUP" | "SCHEDULED" | "MANUAL";
+        /**
+         * UniverseMode
+         * @enum {string}
+         */
+        UniverseMode: "CURRENT_LISTED" | "POINT_IN_TIME";
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -1723,6 +2463,26 @@ export interface operations {
             };
         };
     };
+    list_forward_accounts_api_v1_forward_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardAccountsResponse"];
+                };
+            };
+        };
+    };
     create_forward_account_api_v1_forward_accounts_post: {
         parameters: {
             query?: never;
@@ -1772,6 +2532,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ForwardAccountResponse"];
+                };
+            };
+        };
+    };
+    get_forward_account_api_v1_forward_accounts__account_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardAccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -1948,6 +2739,237 @@ export interface operations {
             };
         };
     };
+    get_replay_experiments_api_v1_research_experiments_get: {
+        parameters: {
+            query?: {
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayExperimentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_replay_experiment_api_v1_research_experiments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayExperimentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replay_experiment_api_v1_research_experiments__experiment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_replay_experiment_api_v1_research_experiments__experiment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayExperimentPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replay_comparison_api_v1_research_experiments__experiment_id__comparison_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayComparisonResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_replay_experiment_run_api_v1_research_experiments__experiment_id__runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayExperimentRunCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_replay_sweep_api_v1_research_experiments__experiment_id__sweeps_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaySweepCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     research_quality_api_v1_research_quality_get: {
         parameters: {
             query?: never;
@@ -2034,6 +3056,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_replay_options_api_v1_research_replay_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayOptionsResponse"];
                 };
             };
         };
@@ -2133,6 +3175,72 @@ export interface operations {
             };
         };
     };
+    cancel_research_replay_api_v1_research_replays__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    promote_research_replay_api_v1_research_replays__run_id__promote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayPromotionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForwardAccountResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     research_status_api_v1_research_status_get: {
         parameters: {
             query?: never;
@@ -2149,6 +3257,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResearchStatusResponse"];
+                };
+            };
+        };
+    };
+    get_replay_sweep_api_v1_research_sweeps__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplaySweepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

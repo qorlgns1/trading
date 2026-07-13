@@ -35,6 +35,12 @@ def config_hash(config: TrendScoreConfig) -> str:
         "retention_threshold": config.retention_threshold,
         "minimum_peer_count": config.minimum_peer_count,
         "order_to_adv_limit": config.order_to_adv_limit,
+        "component_weights_bps": config.component_weights_bps,
+        "require_above_sma200": config.require_above_sma200,
+        "require_positive_six_month": config.require_positive_six_month,
+        "require_absolute_liquidity": config.require_absolute_liquidity,
+        "require_order_size_liquidity": config.require_order_size_liquidity,
+        "minimum_adv_multiplier": config.minimum_adv_multiplier,
         "minimum_adv": {key.value: value for key, value in config.minimum_adv.items()},
         "planned_order_value": {
             key.value: value for key, value in config.planned_order_value.items()
@@ -51,14 +57,8 @@ def _pct_rank(expression: pl.Expr, *, descending: bool = False) -> pl.Expr:
     return pl.when(count > 1).then((rank - 1) / (count - 1)).otherwise(0.5)
 
 
-def score_trends(
-    bars: pl.DataFrame,
-    config: TrendScoreConfig | None = None,
-    *,
-    data_version: str = "unknown",
-) -> pl.DataFrame:
-    """Calculate Trend Score v1 for every asset/date without mutating input data."""
-    config = config or TrendScoreConfig()
+def compute_trend_features(bars: pl.DataFrame) -> pl.DataFrame:
+    """Build the fixed lookback features shared by every Trend Score projection."""
     missing = REQUIRED_COLUMNS - set(bars.columns)
     if missing:
         raise ValueError(f"필수 열이 없습니다: {sorted(missing)}")
@@ -82,12 +82,10 @@ def score_trends(
         .rolling_max(252, min_samples=252)
         .over("asset_id")
         .alias("high_252"),
-        (pl.col("log_return").rolling_std(60, min_samples=55).over("asset_id") * math.sqrt(252))
-        .alias("vol60"),
-        pl.col("traded_value")
-        .rolling_median(60, min_samples=55)
-        .over("asset_id")
-        .alias("adv60"),
+        (
+            pl.col("log_return").rolling_std(60, min_samples=55).over("asset_id") * math.sqrt(252)
+        ).alias("vol60"),
+        pl.col("traded_value").rolling_median(60, min_samples=55).over("asset_id").alias("adv60"),
         pl.col("adjusted_close")
         .is_not_null()
         .cast(pl.Int16)
@@ -139,8 +137,45 @@ def score_trends(
         _pct_rank(eligible_overheat).alias("overheat_rank"),
     )
 
+    return frame.with_columns(
+        (
+            15 * (pl.col("adjusted_close") > pl.col("sma200")).cast(pl.Int8)
+            + 10 * (pl.col("sma50") > pl.col("sma200")).cast(pl.Int8)
+            + 5 * (pl.col("sma200") > pl.col("sma200_20d_ago")).cast(pl.Int8)
+        )
+        .cast(pl.Float64)
+        .truediv(30)
+        .alias("long_term_trend_unit"),
+        (
+            5 * (pl.col("r63") > 0).cast(pl.Int8)
+            + 10 * (pl.col("r126") > 0).cast(pl.Int8)
+            + 10 * (pl.col("r12_1") > 0).cast(pl.Int8)
+        )
+        .cast(pl.Float64)
+        .truediv(25)
+        .alias("absolute_momentum_unit"),
+        pl.col("relative_strength_rank").alias("relative_strength_unit"),
+        ((pl.col("high_ratio") - 0.80) / 0.15)
+        .clip(lower_bound=0, upper_bound=1)
+        .alias("high_proximity_unit"),
+        (1 - pl.col("volatility_rank")).alias("volatility_stability_unit"),
+        pl.col("activity_rank").alias("trading_activity_unit"),
+    )
+
+
+def project_trend_scores(
+    features: pl.DataFrame,
+    config: TrendScoreConfig | None = None,
+    *,
+    data_version: str = "unknown",
+) -> pl.DataFrame:
+    """Apply configurable weights and eligibility gates to fixed trend features."""
+    config = config or TrendScoreConfig()
     minimum_adv = pl.col("peer_group").replace_strict(
-        {key.value: value for key, value in config.minimum_adv.items()},
+        {
+            key.value: value * config.minimum_adv_multiplier
+            for key, value in config.minimum_adv.items()
+        },
         default=None,
         return_dtype=pl.Float64,
     )
@@ -149,42 +184,55 @@ def score_trends(
         default=None,
         return_dtype=pl.Float64,
     )
-    frame = frame.with_columns(
+    frame = features.with_columns(
         (pl.col("adv60") >= minimum_adv).alias("absolute_liquidity_eligible"),
         ((planned_order / pl.col("adv60")) <= config.order_to_adv_limit).alias(
             "order_size_eligible"
         ),
-        (
-            15 * (pl.col("adjusted_close") > pl.col("sma200")).cast(pl.Int8)
-            + 10 * (pl.col("sma50") > pl.col("sma200")).cast(pl.Int8)
-            + 5 * (pl.col("sma200") > pl.col("sma200_20d_ago")).cast(pl.Int8)
-        )
-        .cast(pl.Float64)
-        .alias("long_term_trend_score"),
-        (
-            5 * (pl.col("r63") > 0).cast(pl.Int8)
-            + 10 * (pl.col("r126") > 0).cast(pl.Int8)
-            + 10 * (pl.col("r12_1") > 0).cast(pl.Int8)
-        )
-        .cast(pl.Float64)
-        .alias("absolute_momentum_score"),
-        (20 * pl.col("relative_strength_rank")).alias("relative_strength_score"),
-        (
-            10
-            * ((pl.col("high_ratio") - 0.80) / 0.15)
-            .clip(lower_bound=0, upper_bound=1)
-        ).alias("high_proximity_score"),
-        (10 * (1 - pl.col("volatility_rank"))).alias("volatility_score"),
-        (5 * pl.col("activity_rank")).alias("activity_score"),
+    )
+    weights = config.component_weights_bps
+    frame = frame.with_columns(
+        (pl.col("long_term_trend_unit") * (weights["long_term_trend"] / 100)).alias(
+            "long_term_trend_score"
+        ),
+        (pl.col("absolute_momentum_unit") * (weights["absolute_momentum"] / 100)).alias(
+            "absolute_momentum_score"
+        ),
+        (pl.col("relative_strength_unit") * (weights["relative_strength"] / 100)).alias(
+            "relative_strength_score"
+        ),
+        (pl.col("high_proximity_unit") * (weights["high_proximity"] / 100)).alias(
+            "high_proximity_score"
+        ),
+        (pl.col("volatility_stability_unit") * (weights["volatility_stability"] / 100)).alias(
+            "volatility_score"
+        ),
+        (pl.col("trading_activity_unit") * (weights["trading_activity"] / 100)).alias(
+            "activity_score"
+        ),
+    )
+    above_sma_gate = (
+        pl.col("adjusted_close") > pl.col("sma200") if config.require_above_sma200 else pl.lit(True)
+    )
+    momentum_gate = pl.col("r126") > 0 if config.require_positive_six_month else pl.lit(True)
+    absolute_liquidity_gate = (
+        pl.col("absolute_liquidity_eligible").fill_null(False)
+        if config.require_absolute_liquidity
+        else pl.lit(True)
+    )
+    order_size_gate = (
+        pl.col("order_size_eligible").fill_null(False)
+        if config.require_order_size_liquidity
+        else pl.lit(True)
     )
     frame = frame.with_columns(
         (
             pl.col("data_eligible")
             & (pl.col("peer_count") >= config.minimum_peer_count)
-            & pl.col("absolute_liquidity_eligible").fill_null(False)
-            & pl.col("order_size_eligible").fill_null(False)
-            & (pl.col("adjusted_close") > pl.col("sma200"))
-            & (pl.col("r126") > 0)
+            & absolute_liquidity_gate
+            & order_size_gate
+            & above_sma_gate
+            & momentum_gate
         ).alias("candidate_eligible"),
         pl.sum_horizontal(
             "long_term_trend_score",
@@ -218,6 +266,20 @@ def score_trends(
     )
 
 
+def score_trends(
+    bars: pl.DataFrame,
+    config: TrendScoreConfig | None = None,
+    *,
+    data_version: str = "unknown",
+) -> pl.DataFrame:
+    """Calculate a deterministic Trend Score projection without mutating input data."""
+    return project_trend_scores(
+        compute_trend_features(bars),
+        config,
+        data_version=data_version,
+    )
+
+
 def exclusion_codes(row: Mapping[str, Any], config: TrendScoreConfig | None = None) -> list[str]:
     config = config or TrendScoreConfig()
     codes: list[str] = []
@@ -231,17 +293,21 @@ def exclusion_codes(row: Mapping[str, Any], config: TrendScoreConfig | None = No
         codes.append(ExclusionCode.SUSPENDED.value)
     if int(row.get("peer_count") or 0) < config.minimum_peer_count:
         codes.append(ExclusionCode.INSUFFICIENT_PEERS.value)
-    if (
+    if config.require_above_sma200 and (
         row.get("adjusted_close") is not None
         and row.get("sma200") is not None
         and float(row["adjusted_close"]) <= float(row["sma200"])
     ):
         codes.append(ExclusionCode.BELOW_SMA200.value)
-    if row.get("r126") is not None and float(row["r126"]) <= 0:
+    if (
+        config.require_positive_six_month
+        and row.get("r126") is not None
+        and float(row["r126"]) <= 0
+    ):
         codes.append(ExclusionCode.NEGATIVE_6M_MOMENTUM.value)
-    if row.get("absolute_liquidity_eligible") is False:
+    if config.require_absolute_liquidity and row.get("absolute_liquidity_eligible") is False:
         codes.append(ExclusionCode.LOW_ABSOLUTE_LIQUIDITY.value)
-    if row.get("order_size_eligible") is False:
+    if config.require_order_size_liquidity and row.get("order_size_eligible") is False:
         codes.append(ExclusionCode.ORDER_TOO_LARGE.value)
     return list(dict.fromkeys(codes))
 

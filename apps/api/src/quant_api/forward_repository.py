@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from quant_core.config import PORTFOLIO_VERSION, TREND_SCORE_VERSION
-from quant_core.enums import PaperAccountStatus, PaperOrderStatus, Sleeve
+from quant_core.enums import ForwardAccountType, PaperAccountStatus, PaperOrderStatus, Sleeve
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -139,38 +139,75 @@ class ForwardLedgerRepository:
         baseline_data_version: str,
         baseline_as_of: date,
         market_dates: dict[str, str],
+        account_type: ForwardAccountType = ForwardAccountType.BASELINE,
+        name: str = "기준 포트폴리오",
+        initial_capital_krw: float = 50_000_000.0,
+        strategy_config: dict[str, Any] | None = None,
+        strategy_config_hash: str | None = None,
+        source_experiment_id: str | None = None,
+        source_run_id: str | None = None,
+        score_version: str = TREND_SCORE_VERSION,
+        portfolio_version: str = PORTFOLIO_VERSION,
+        sleeve_slot_counts: dict[str, int] | None = None,
     ) -> PaperAccountModel:
+        sleeve_slot_counts = sleeve_slot_counts or {sleeve.value: 3 for sleeve in Sleeve}
+        active_slot = account_type.value
         account = PaperAccountModel(
             id=str(uuid.uuid4()),
-            active_slot="CURRENT",
+            active_slot=active_slot,
+            account_type=account_type.value,
+            name=name,
             status=PaperAccountStatus.WAITING_FOR_REVIEW.value,
-            initial_capital_krw=50_000_000.0,
+            initial_capital_krw=initial_capital_krw,
             weights_json=weights,
-            score_version=TREND_SCORE_VERSION,
-            portfolio_version=PORTFOLIO_VERSION,
+            strategy_config_json=strategy_config,
+            strategy_config_hash=strategy_config_hash,
+            source_experiment_id=source_experiment_id,
+            source_run_id=source_run_id,
+            score_version=score_version,
+            portfolio_version=portfolio_version,
             baseline_data_version=baseline_data_version,
             last_data_version=baseline_data_version,
             review_required_json=[],
         )
         try:
             async with self.session_factory() as session, session.begin():
-                active = await session.scalar(
-                    select(PaperAccountModel.id)
-                    .where(PaperAccountModel.active_slot == "CURRENT")
-                    .limit(1)
+                active_slots = set(
+                    (
+                        await session.scalars(
+                            select(PaperAccountModel.active_slot).where(
+                                PaperAccountModel.active_slot.is_not(None)
+                            )
+                        )
+                    ).all()
                 )
-                if active is not None:
-                    raise ValueError("운영 중인 포워드 계좌는 한 개만 만들 수 있습니다.")
+                if account_type is ForwardAccountType.BASELINE:
+                    if "BASELINE" in active_slots or "CURRENT" in active_slots:
+                        raise ValueError("운영 중인 기준 포워드 계좌는 한 개만 만들 수 있습니다.")
+                    account.active_slot = "BASELINE"
+                else:
+                    available = next(
+                        (
+                            f"EXPERIMENT_{index}"
+                            for index in range(1, 4)
+                            if f"EXPERIMENT_{index}" not in active_slots
+                        ),
+                        None,
+                    )
+                    if available is None:
+                        raise ValueError("운영 중인 실험 포워드 계좌는 세 개까지 만들 수 있습니다.")
+                    account.active_slot = available
                 session.add(account)
                 for sleeve in Sleeve:
-                    allocation = 50_000_000.0 * weights[sleeve.value] / 10_000
+                    allocation = initial_capital_krw * weights[sleeve.value] / 10_000
                     session.add(
                         PaperCashModel(
                             account_id=account.id,
                             sleeve=sleeve.value,
                             currency="KRW",
                             balance=allocation,
-                            target_per_slot=allocation / 3,
+                            target_per_slot=allocation
+                            / max(sleeve_slot_counts.get(sleeve.value, 0), 1),
                         )
                     )
                 session.add(
@@ -179,23 +216,34 @@ class ForwardLedgerRepository:
                         data_version=baseline_data_version,
                         as_of=baseline_as_of,
                         market_dates_json=market_dates,
-                        total_value_krw=50_000_000.0,
-                        cash_krw=50_000_000.0,
+                        total_value_krw=initial_capital_krw,
+                        cash_krw=initial_capital_krw,
                         invested_krw=0.0,
                         benchmark_value_krw=None,
                         drawdown=0.0,
                     )
                 )
         except IntegrityError as error:
-            raise ValueError("운영 중인 포워드 계좌는 한 개만 만들 수 있습니다.") from error
+            raise ValueError("같은 유형의 활성 포워드 계좌 슬롯을 사용할 수 없습니다.") from error
         return account
 
     async def current_account(self) -> PaperAccountModel | None:
         async with self.session_factory() as session:
             statement = (
-                select(PaperAccountModel).where(PaperAccountModel.active_slot == "CURRENT").limit(1)
+                select(PaperAccountModel)
+                .where(PaperAccountModel.active_slot.in_(["BASELINE", "CURRENT"]))
+                .limit(1)
             )
             return (await session.scalars(statement)).first()
+
+    async def active_accounts(self) -> list[PaperAccountModel]:
+        async with self.session_factory() as session:
+            statement = (
+                select(PaperAccountModel)
+                .where(PaperAccountModel.active_slot.is_not(None))
+                .order_by(PaperAccountModel.account_type, PaperAccountModel.created_at)
+            )
+            return list((await session.scalars(statement)).all())
 
     async def get_account(self, account_id: str) -> PaperAccountModel | None:
         async with self.session_factory() as session:
@@ -206,7 +254,7 @@ class ForwardLedgerRepository:
             account = await session.get(PaperAccountModel, account_id)
             if account is None:
                 raise KeyError(account_id)
-            if account.active_slot != "CURRENT":
+            if account.active_slot is None:
                 return account
             account.active_slot = None
             account.status = PaperAccountStatus.ARCHIVED.value

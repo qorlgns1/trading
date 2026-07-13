@@ -8,7 +8,7 @@
 - Shared rules: `trend-score-v1.0.0`, `portfolio-v1.0.0`, `data-quality-v1.0.0`
 - Mode: `local_research` only; public requests receive `403`
 
-Historical replay and forward tracking are separate data products. A replay reconstructs the strategy over the immutable current-listed universe. A forward account records only observations and decisions made after the user creates it. Their results are never joined.
+Historical replay and forward tracking are separate data products. A replay reconstructs the strategy over the immutable current-listed universe. A forward account records only observations and decisions made after the user creates it. Their results are never joined. The active-account model is extended by [strategy lab v2](./replay-strategy-lab-v2.md); legacy `CURRENT` accounts migrate to the v2 `BASELINE` slot without losing ledger rows.
 
 ## Historical Replay
 
@@ -34,7 +34,7 @@ Every activated snapshot writes official candidate source rows to `forward/signa
 
 ## Forward Account
 
-Only one account may own the SQL `CURRENT` slot. Its initial capital is KRW 50,000,000 and four sleeve weights are immutable after creation. The creation snapshot is stored as `BASELINE`; status remains `WAITING_FOR_REVIEW` until a later completed weekly review.
+The v1 account now owns the SQL `BASELINE` slot. Strategy lab v2 additionally permits three `EXPERIMENT_n` slots. Initial capital and strategy settings are immutable after creation. The creation snapshot is stored as `BASELINE`; status remains `WAITING_FOR_REVIEW` until a later completed review for that strategy's frequency.
 
 Forward processing is transactional and idempotent per data version:
 
@@ -54,7 +54,8 @@ The SQL ledger uses `paper_accounts`, `paper_reviews`, `paper_orders`, `paper_tr
 | `GET /api/v1/research/replays/{id}` | Read stage, progress, and result |
 | `GET /api/v1/research/replays/{id}/artifacts` | Read local artifact links |
 | `GET /api/v1/research/candidate-history` | Filter candidate changes |
-| `POST /api/v1/forward/accounts` | Create the only active account |
+| `POST /api/v1/forward/accounts` | Create the baseline account |
+| `GET /api/v1/forward/accounts` | Read baseline/experiment accounts and common-period metrics |
 | `GET /api/v1/forward/accounts/current` | Read account state and ledger summary |
 | `GET /api/v1/forward/accounts/{id}/activity` | Read reviews, orders, and trades |
 | `POST /api/v1/forward/accounts/{id}/archive` | Freeze and archive the account |

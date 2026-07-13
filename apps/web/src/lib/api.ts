@@ -20,11 +20,21 @@ export type ReplayResponse = components["schemas"]["ReplayResponse"];
 export type ReplayAccepted = components["schemas"]["ReplayAccepted"];
 export type ReplayAnalysis = components["schemas"]["ReplayAnalysis"];
 export type ReplayRoundTrip = components["schemas"]["ReplayRoundTrip"];
+export type ReplayOptions = components["schemas"]["ReplayOptionsResponse"];
+export type ReplayStrategy = components["schemas"]["ReplayStrategyConfig"];
+export type ReplayExperiment =
+  components["schemas"]["ReplayExperimentResponse"];
+export type ReplayExperimentList =
+  components["schemas"]["ReplayExperimentListResponse"];
+export type ReplayComparison =
+  components["schemas"]["ReplayComparisonResponse"];
+export type ReplaySweep = components["schemas"]["ReplaySweepResponse"];
 export type CandidateHistory =
   components["schemas"]["CandidateHistoryResponse"];
 export type CandidateHistoryItem =
   components["schemas"]["CandidateHistoryItem"];
 export type ForwardAccount = components["schemas"]["ForwardAccountResponse"];
+export type ForwardAccounts = components["schemas"]["ForwardAccountsResponse"];
 export type ForwardActivity = components["schemas"]["ForwardActivityResponse"];
 export type ProviderList = components["schemas"]["ProviderListResponse"];
 export type ProviderStatus = components["schemas"]["ProviderStatusResponse"];

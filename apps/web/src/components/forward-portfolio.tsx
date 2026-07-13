@@ -15,7 +15,12 @@ import { useCallback, useEffect, useState } from "react";
 import { PEER_LABELS } from "@/components/candidate-table";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { apiFetch, type ForwardAccount, type ForwardActivity } from "@/lib/api";
+import {
+  apiFetch,
+  type ForwardAccount,
+  type ForwardAccounts,
+  type ForwardActivity,
+} from "@/lib/api";
 import {
   DEFAULT_ALLOCATIONS,
   toBasisPoints,
@@ -34,6 +39,7 @@ const LABELS: Record<AllocationKey, string> = {
 
 export function ForwardPortfolio() {
   const [account, setAccount] = useState<ForwardAccount | null>(null);
+  const [accounts, setAccounts] = useState<ForwardAccounts | null>(null);
   const [activity, setActivity] = useState<ForwardActivity | null>(null);
   const [allocations, setAllocations] =
     useState<Allocations>(DEFAULT_ALLOCATIONS);
@@ -45,60 +51,47 @@ export function ForwardPortfolio() {
     setLoading(true);
     setError(null);
     try {
-      const next = await apiFetch<ForwardAccount>("/forward/accounts/current");
+      const list = await apiFetch<ForwardAccounts>("/forward/accounts");
+      setAccounts(list);
+      const availableAccounts = list.accounts ?? [];
+      const next =
+        availableAccounts.find(
+          (item) => item.account_id === account?.account_id,
+        ) ??
+        availableAccounts[0] ??
+        null;
       setAccount(next);
       setActivity(
-        await apiFetch<ForwardActivity>(
-          `/forward/accounts/${next.account_id}/activity?page=1&page_size=30`,
-        ),
+        next
+          ? await apiFetch<ForwardActivity>(
+              `/forward/accounts/${next.account_id}/activity?page=1&page_size=30`,
+            )
+          : null,
       );
     } catch (reason) {
       const message =
         reason instanceof Error
           ? reason.message
           : "계좌를 불러오지 못했습니다.";
-      if (message.includes("활성 포워드 계좌가 없습니다")) {
-        setAccount(null);
-        setActivity(null);
-      } else {
-        setError(message);
-      }
+      setError(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [account?.account_id]);
 
   useEffect(() => {
-    let active = true;
-    async function initialLoad() {
-      try {
-        const next = await apiFetch<ForwardAccount>(
-          "/forward/accounts/current",
-        );
-        const nextActivity = await apiFetch<ForwardActivity>(
-          `/forward/accounts/${next.account_id}/activity?page=1&page_size=30`,
-        );
-        if (active) {
-          setAccount(next);
-          setActivity(nextActivity);
-        }
-      } catch (reason) {
-        const message =
-          reason instanceof Error
-            ? reason.message
-            : "계좌를 불러오지 못했습니다.";
-        if (active && !message.includes("활성 포워드 계좌가 없습니다")) {
-          setError(message);
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-    void initialLoad();
-    return () => {
-      active = false;
-    };
-  }, []);
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  async function selectAccount(next: ForwardAccount) {
+    setAccount(next);
+    setActivity(
+      await apiFetch<ForwardActivity>(
+        `/forward/accounts/${next.account_id}/activity?page=1&page_size=30`,
+      ),
+    );
+  }
 
   async function createAccount() {
     setWorking(true);
@@ -111,6 +104,11 @@ export function ForwardPortfolio() {
         }),
       });
       setAccount(created);
+      setAccounts((current) => ({
+        total: (current?.total ?? 0) + 1,
+        common_start_date: current?.common_start_date ?? null,
+        accounts: [...(current?.accounts ?? []), created],
+      }));
       setActivity({
         account_id: created.account_id,
         total: 0,
@@ -135,12 +133,12 @@ export function ForwardPortfolio() {
       return;
     setWorking(true);
     try {
-      setAccount(
-        await apiFetch<ForwardAccount>(
-          `/forward/accounts/${account.account_id}/archive`,
-          { method: "POST" },
-        ),
+      await apiFetch<ForwardAccount>(
+        `/forward/accounts/${account.account_id}/archive`,
+        { method: "POST" },
       );
+      setAccount(null);
+      await load();
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -298,6 +296,24 @@ export function ForwardPortfolio() {
   const positions = account.positions ?? [];
   const pendingOrders = account.pending_orders ?? [];
   const marketDates = account.market_dates ?? {};
+  const strategySlots = (
+    account.strategy_config as
+      | { portfolio?: { peer_group_slots?: Record<string, number> } }
+      | null
+      | undefined
+  )?.portfolio?.peer_group_slots;
+  const maximumPositions = strategySlots
+    ? Object.values(strategySlots).reduce((sum, value) => sum + value, 0)
+    : 12;
+  const commonMetrics = account.common_period_metrics as
+    | {
+        start_date?: string;
+        cumulative_return?: number;
+        max_drawdown?: number;
+        observation_count?: number;
+      }
+    | null
+    | undefined;
   return (
     <>
       <header className="page-header">
@@ -305,8 +321,11 @@ export function ForwardPortfolio() {
           <div style={{ marginBottom: 7 }}>
             <StatusBadge state={account.status} />
           </div>
-          <h1>포워드 포트폴리오</h1>
-          <p>계좌 생성 이후의 후보 평가와 모의 체결만 누적합니다.</p>
+          <h1>{account.name}</h1>
+          <p>
+            {account.account_type === "BASELINE" ? "기준" : "실험"} 포워드 계좌
+            · 계좌 생성 이후 기록만 누적
+          </p>
         </div>
         <div className="page-actions">
           {account.status === "ERROR" && (
@@ -339,6 +358,40 @@ export function ForwardPortfolio() {
           </button>
         </div>
       </header>
+
+      {(accounts?.accounts?.length ?? 0) > 1 && (
+        <>
+          <nav className="forward-account-tabs" aria-label="포워드 계좌">
+            {(accounts?.accounts ?? []).map((item) => (
+              <button
+                type="button"
+                key={item.account_id}
+                className={
+                  item.account_id === account.account_id ? "active" : undefined
+                }
+                onClick={() => void selectAccount(item)}
+              >
+                <span>
+                  {item.account_type === "BASELINE" ? "기준" : "실험"}
+                </span>
+                <strong>{item.name}</strong>
+              </button>
+            ))}
+          </nav>
+          {commonMetrics && (
+            <div className="forward-common-period">
+              <span>공통 비교 기간 · {commonMetrics.start_date}</span>
+              <strong>
+                수익률 {formatPercent(commonMetrics.cumulative_return ?? 0)}
+              </strong>
+              <span>
+                MDD {formatPercent(commonMetrics.max_drawdown ?? 0)} · 관측{" "}
+                {commonMetrics.observation_count ?? 0}일
+              </span>
+            </div>
+          )}
+        </>
+      )}
 
       {account.status === "WAITING_FOR_REVIEW" && (
         <div className="notice-box warning-box" style={{ marginBottom: 20 }}>
@@ -397,7 +450,9 @@ export function ForwardPortfolio() {
           <div className="panel-header">
             <div>
               <h2>현재 포지션</h2>
-              <p>{positions.length} / 12종목</p>
+              <p>
+                {positions.length} / {maximumPositions}종목
+              </p>
             </div>
           </div>
           <div className="data-table-wrap">

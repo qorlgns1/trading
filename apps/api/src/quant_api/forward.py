@@ -12,12 +12,19 @@ from quant_core.config import PEER_GROUP_SLEEVE, PortfolioConfig
 from quant_core.enums import (
     CandidateEventType,
     DataStatus,
+    ForwardAccountType,
     PaperAccountStatus,
     PaperOrderStatus,
     PeerGroup,
+    ReviewFrequency,
     Sleeve,
 )
-from quant_core.market_portfolio import PortfolioPosition, plan_weekly_orders
+from quant_core.market_portfolio import (
+    PortfolioPosition,
+    delayed_trading_date,
+    plan_weekly_orders,
+)
+from quant_core.scoring import project_trend_scores
 from sqlalchemy import select
 
 from quant_api.database import (
@@ -31,13 +38,18 @@ from quant_api.database import (
     PaperValuationModel,
 )
 from quant_api.forward_repository import ForwardLedgerRepository, total_pages
+from quant_api.replay_strategy import strategy_domain, strategy_hash
+from quant_api.research_replays import repository as run_repository
 from quant_api.research_store import ResearchSnapshotStore, file_sha256
 from quant_api.schemas import (
     CandidateHistoryItem,
     CandidateHistoryResponse,
     ForwardAccountCreate,
     ForwardAccountResponse,
+    ForwardAccountsResponse,
     ForwardActivityResponse,
+    ReplayPromotionCreate,
+    ReplayStrategyConfig,
 )
 from quant_api.settings import Settings, get_settings
 
@@ -65,12 +77,27 @@ def _market_dates(manifest: dict[str, Any]) -> dict[str, str]:
     return result
 
 
-def _completed_review_date(manifest: dict[str, Any]) -> date | None:
+def _completed_review_date(
+    manifest: dict[str, Any], frequency: ReviewFrequency = ReviewFrequency.WEEKLY
+) -> date | None:
     market_dates = _market_dates(manifest)
     if set(market_dates) != {"US", "KR"}:
         return None
     us_date = date.fromisoformat(market_dates["US"])
     kr_date = date.fromisoformat(market_dates["KR"])
+    if frequency is ReviewFrequency.DAILY:
+        return max(us_date, kr_date)
+    if frequency is ReviewFrequency.MONTHLY:
+        period = (us_date.year, us_date.month)
+        if period != (kr_date.year, kr_date.month):
+            return None
+        next_us = next_trading_date(us_date, "US")
+        next_kr = next_trading_date(kr_date, "KR")
+        if (next_us.year, next_us.month) == period:
+            return None
+        if (next_kr.year, next_kr.month) == period:
+            return None
+        return max(us_date, kr_date)
     if us_date.isocalendar()[:2] != kr_date.isocalendar()[:2]:
         return None
     week = us_date.isocalendar()[:2]
@@ -111,6 +138,38 @@ class ForwardService:
 
         manifest = json.loads((snapshot / "manifest.json").read_text(encoding="utf-8"))
         return snapshot, manifest
+
+    @staticmethod
+    def _account_configs(
+        account: PaperAccountModel,
+    ) -> tuple[Any | None, PortfolioConfig]:
+        if account.strategy_config_json is not None:
+            strategy = ReplayStrategyConfig.model_validate(account.strategy_config_json)
+            return strategy_domain(strategy)
+        return None, PortfolioConfig(
+            sleeve_weights_bps={
+                Sleeve(key): int(value) for key, value in account.weights_json.items()
+            }
+        )
+
+    @staticmethod
+    def _project_latest(
+        latest: pl.DataFrame,
+        score_config: Any | None,
+        *,
+        data_version: str,
+    ) -> pl.DataFrame:
+        if score_config is None:
+            return latest
+        features = latest.with_columns(
+            (pl.col("long_term_trend_score") / 30).alias("long_term_trend_unit"),
+            (pl.col("absolute_momentum_score") / 25).alias("absolute_momentum_unit"),
+            (pl.col("relative_strength_score") / 20).alias("relative_strength_unit"),
+            (pl.col("high_proximity_score") / 10).alias("high_proximity_unit"),
+            (pl.col("volatility_score") / 10).alias("volatility_stability_unit"),
+            (pl.col("activity_score") / 5).alias("trading_activity_unit"),
+        )
+        return project_trend_scores(features, score_config, data_version=data_version)
 
     async def capture_candidates(self, data_version: str | None = None) -> CandidateSnapshotModel:
         self._ensure_local()
@@ -250,6 +309,7 @@ class ForwardService:
             baseline_data_version=candidate_snapshot.data_version,
             baseline_as_of=candidate_snapshot.as_of,
             market_dates=_market_dates(manifest),
+            name=request.name,
         )
         return await self.account_response(account)
 
@@ -257,6 +317,89 @@ class ForwardService:
         self._ensure_local()
         account = await self.repository.current_account()
         return await self.account_response(account) if account is not None else None
+
+    async def get_account(self, account_id: str) -> ForwardAccountResponse | None:
+        self._ensure_local()
+        account = await self.repository.get_account(account_id)
+        return await self.account_response(account) if account is not None else None
+
+    async def accounts(self) -> ForwardAccountsResponse:
+        self._ensure_local()
+        models = await self.repository.active_accounts()
+        responses = [await self.account_response(model) for model in models]
+        valuations_by_account: dict[str, list[PaperValuationModel]] = {}
+        for model in models:
+            _, _, _, valuations = await self.repository.account_state(model.id)
+            valuations_by_account[model.id] = valuations
+        first_dates = [
+            valuations[0].as_of for valuations in valuations_by_account.values() if valuations
+        ]
+        common_start = max(first_dates) if first_dates else None
+        if common_start is not None:
+            for response in responses:
+                valuations = [
+                    item
+                    for item in valuations_by_account[response.account_id]
+                    if item.as_of >= common_start
+                ]
+                if not valuations:
+                    continue
+                values = np.asarray([item.total_value_krw for item in valuations], dtype=float)
+                running_max = np.maximum.accumulate(values)
+                response.common_period_metrics = {
+                    "start_date": valuations[0].as_of.isoformat(),
+                    "observation_count": len(valuations),
+                    "cumulative_return": round(float(values[-1] / values[0] - 1), 6),
+                    "max_drawdown": round(float(np.min(values / running_max - 1)), 6),
+                }
+        return ForwardAccountsResponse(
+            total=len(responses),
+            common_start_date=common_start,
+            accounts=responses,
+        )
+
+    async def promote_replay(
+        self, run_id: str, request: ReplayPromotionCreate
+    ) -> ForwardAccountResponse:
+        self._ensure_local()
+        run = await run_repository.get(run_id)
+        if run is None or run.status != "SUCCEEDED" or run.result_summary is None:
+            raise ValueError("완료된 전략 실행만 포워드 계좌로 승격할 수 있습니다.")
+        strategy_payload = run.result_summary.get("strategy_config")
+        if not isinstance(strategy_payload, dict):
+            raise ValueError("이전 버전 실행에는 승격 가능한 전략 설정이 없습니다.")
+        strategy = ReplayStrategyConfig.model_validate(strategy_payload)
+        score_config, portfolio_config = strategy_domain(strategy)
+        candidate_snapshot = await self.capture_candidates()
+        _, manifest = self._snapshot(candidate_snapshot.data_version)
+        weights = {
+            sleeve.value: weight for sleeve, weight in portfolio_config.sleeve_weights_bps.items()
+        }
+        sleeve_slot_counts = {
+            sleeve.value: sum(
+                portfolio_config.peer_group_slots[group]
+                for group, mapped in PEER_GROUP_SLEEVE.items()
+                if mapped is sleeve
+            )
+            for sleeve in Sleeve
+        }
+        account = await self.repository.create_account(
+            weights=weights,
+            baseline_data_version=candidate_snapshot.data_version,
+            baseline_as_of=candidate_snapshot.as_of,
+            market_dates=_market_dates(manifest),
+            account_type=request.account_type,
+            name=request.name,
+            initial_capital_krw=portfolio_config.initial_capital_krw,
+            strategy_config=strategy.model_dump(mode="json"),
+            strategy_config_hash=strategy_hash(strategy),
+            source_experiment_id=request.experiment_id,
+            source_run_id=run_id,
+            score_version=score_config.version,
+            portfolio_version=portfolio_config.version,
+            sleeve_slot_counts=sleeve_slot_counts,
+        )
+        return await self.account_response(account)
 
     async def archive_account(self, account_id: str) -> ForwardAccountResponse:
         self._ensure_local()
@@ -306,6 +449,8 @@ class ForwardService:
             warnings.append("데이터 이상 종목은 자동 매도하지 않고 검토 필요로 보류합니다.")
         return ForwardAccountResponse(
             account_id=account.id,
+            account_type=ForwardAccountType(account.account_type),
+            name=account.name,
             status=PaperAccountStatus(account.status),
             initial_capital_krw=account.initial_capital_krw,
             sleeve_weights_bps={
@@ -353,6 +498,10 @@ class ForwardService:
             ],
             review_required_assets=list(account.review_required_json or []),
             warnings=warnings,
+            strategy_config=account.strategy_config_json,
+            strategy_config_hash=account.strategy_config_hash,
+            source_experiment_id=account.source_experiment_id,
+            source_run_id=account.source_run_id,
         )
 
     async def retry(self, account_id: str) -> ForwardAccountResponse:
@@ -372,23 +521,41 @@ class ForwardService:
     async def process_snapshot(self, data_version: str, *, force: bool = False) -> None:
         self._ensure_local()
         await self.capture_candidates(data_version)
-        account = await self.repository.current_account()
-        if account is None:
+        accounts = await self.repository.active_accounts()
+        if not accounts:
             return
-        try:
-            await self._write_account_score_source(account.id, data_version)
-            await self._process_account(account.id, data_version, force=force)
-        except Exception as error:
-            await self.repository.set_account_error(account.id, str(error))
-            raise
+        errors: list[Exception] = []
+        for account in accounts:
+            try:
+                await self._write_account_score_source(account.id, data_version)
+                await self._process_account(account.id, data_version, force=force)
+            except Exception as error:
+                await self.repository.set_account_error(account.id, str(error))
+                errors.append(error)
+        if errors:
+            raise RuntimeError(f"포워드 계좌 {len(errors)}개의 처리가 실패했습니다.") from errors[0]
 
     async def _write_account_score_source(self, account_id: str, data_version: str) -> None:
         snapshot, _ = self._snapshot(data_version)
+        account = await self.repository.get_account(account_id)
+        if account is None:
+            raise KeyError(account_id)
+        score_config, portfolio_config = self._account_configs(account)
         _, positions, _, _ = await self.repository.account_state(account_id)
         held_ids = [position.asset_id for position in positions]
-        latest = pl.read_parquet(snapshot / "scores" / "latest.parquet")
+        latest = self._project_latest(
+            pl.read_parquet(snapshot / "scores" / "latest.parquet"),
+            score_config,
+            data_version=data_version,
+        )
+        threshold = pl.col("peer_group").replace_strict(
+            {group.value: portfolio_config.entry_score_for(group) for group in PeerGroup},
+            default=portfolio_config.entry_score,
+            return_dtype=pl.Float64,
+        )
         source = latest.filter(
-            pl.col("official_candidate").fill_null(False) | pl.col("asset_id").is_in(held_ids)
+            (pl.col("candidate_eligible").fill_null(False) & (pl.col("trend_score") >= threshold))
+            | pl.col("asset_id").is_in(held_ids)
         ).select(
             "date",
             "asset_id",
@@ -400,7 +567,7 @@ class ForwardService:
             "relative_momentum",
             "data_eligible",
             "candidate_eligible",
-            "official_candidate",
+            pl.col("candidate_eligible").alias("official_candidate"),
             "data_status",
             "benchmark_close",
             "benchmark_sma200",
@@ -416,7 +583,15 @@ class ForwardService:
 
     async def _process_account(self, account_id: str, data_version: str, *, force: bool) -> None:
         snapshot, manifest = self._snapshot(data_version)
-        latest = pl.read_parquet(snapshot / "scores" / "latest.parquet")
+        account_source = await self.repository.get_account(account_id)
+        if account_source is None:
+            raise KeyError(account_id)
+        score_config, config = self._account_configs(account_source)
+        latest = self._project_latest(
+            pl.read_parquet(snapshot / "scores" / "latest.parquet"),
+            score_config,
+            data_version=data_version,
+        )
         latest_rows = {str(row["asset_id"]): row for row in latest.to_dicts()}
         fx_values = latest.get_column("fx_krw_per_usd").drop_nulls()
         if fx_values.is_empty():
@@ -426,7 +601,7 @@ class ForwardService:
         if set(market_dates) != {"US", "KR"}:
             raise RuntimeError("한국·미국 시장 기준일이 모두 필요합니다.")
         valuation_date = max(date.fromisoformat(value) for value in market_dates.values())
-        review_date = _completed_review_date(manifest)
+        review_date = _completed_review_date(manifest, config.review_frequency)
 
         async with self.repository.session_factory() as session, session.begin():
             account = await session.scalar(
@@ -434,7 +609,7 @@ class ForwardService:
                 .where(PaperAccountModel.id == account_id)
                 .with_for_update()
             )
-            if account is None or account.active_slot != "CURRENT":
+            if account is None or account.active_slot is None:
                 return
             if account.last_data_version == data_version and not force:
                 return
@@ -634,9 +809,11 @@ class ForwardService:
                 if fill is None:
                     order.status = PaperOrderStatus.DEFERRED.value
                     continue
-                price = float(fill["open"])
+                raw_price = float(fill["open"])
                 sleeve = Sleeve(order.sleeve)
-                cost_rate = 0.0015 if order.currency == "USD" else 0.0025
+                slippage = config.slippage_bps / 10_000
+                price = raw_price * (1 + slippage if order.side == "BUY" else 1 - slippage)
+                cost_rate = config.trade_cost(order.currency, order.side)
                 if order.side == "SELL":
                     position = positions.get(order.asset_id)
                     if position is None:
@@ -652,7 +829,25 @@ class ForwardService:
                     if order.asset_id in positions:
                         order.status = PaperOrderStatus.CANCELLED.value
                         continue
-                    spendable = min(cash[sleeve].target_per_slot, cash[sleeve].balance)
+                    target = cash[sleeve].target_per_slot
+                    if config.position_sizing.value == "INVERSE_VOLATILITY":
+                        candidate_inverse = 1 / max(float(current.get("vol60") or 0.05), 0.05)
+                        existing_inverse = sum(
+                            1 / max(float(model.last_volatility or 0.05), 0.05)
+                            for model in positions.values()
+                            if model.sleeve == sleeve.value
+                        )
+                        sleeve_equity = cash[sleeve].balance + sum(
+                            model.quantity * model.last_price
+                            for model in positions.values()
+                            if model.sleeve == sleeve.value
+                        )
+                        target = (
+                            sleeve_equity
+                            * candidate_inverse
+                            / max(existing_inverse + candidate_inverse, candidate_inverse)
+                        )
+                    spendable = min(target, cash[sleeve].balance)
                     quantity = math.floor(spendable / (price * (1 + cost_rate)))
                     if quantity < 1:
                         order.status = PaperOrderStatus.CANCELLED.value
@@ -672,6 +867,8 @@ class ForwardService:
                         average_cost=price,
                         last_price=price,
                         last_score=float(current.get("trend_score") or 0),
+                        highest_close=price,
+                        last_volatility=float(current.get("vol60") or 0.0),
                         data_status=DataStatus.READY.value,
                         review_required=False,
                     )
@@ -709,10 +906,93 @@ class ForwardService:
                 close = latest_row.get("close")
                 if close is not None and float(close) > 0:
                     position.last_price = float(close)
+                    position.highest_close = max(
+                        float(position.highest_close or position.average_cost),
+                        float(close),
+                    )
                 position.last_score = float(latest_row.get("trend_score") or position.last_score)
+                position.last_volatility = float(
+                    latest_row.get("vol60") or position.last_volatility or 0.0
+                )
                 position.data_status = DataStatus.READY.value
                 position.review_required = False
                 review_required.discard(asset_id)
+
+            pending_sell_ids = {
+                order.asset_id
+                for order in pending
+                if order.side == "SELL"
+                and order.status
+                in {PaperOrderStatus.PENDING.value, PaperOrderStatus.DEFERRED.value}
+            }
+            stop_rows: list[tuple[PaperPositionModel, str]] = []
+            for asset_id, position in positions.items():
+                if position.review_required or asset_id in pending_sell_ids:
+                    continue
+                reason: str | None = None
+                if (
+                    config.fixed_stop_loss is not None
+                    and position.last_price <= position.average_cost * (1 - config.fixed_stop_loss)
+                ):
+                    reason = "FIXED_STOP"
+                elif (
+                    config.trailing_stop_loss is not None
+                    and position.highest_close is not None
+                    and position.last_price
+                    <= position.highest_close * (1 - config.trailing_stop_loss)
+                ):
+                    reason = "TRAILING_STOP"
+                if reason is not None:
+                    stop_rows.append((position, reason))
+            if stop_rows:
+                stop_review = await session.scalar(
+                    select(PaperReviewModel).where(
+                        PaperReviewModel.account_id == account_id,
+                        PaperReviewModel.review_date == valuation_date,
+                    )
+                )
+                if stop_review is None:
+                    stop_review = PaperReviewModel(
+                        id=str(uuid.uuid4()),
+                        account_id=account_id,
+                        review_date=valuation_date,
+                        data_version=data_version,
+                        status="SYSTEM",
+                        details_json={"risk_exits": [item.asset_id for item, _ in stop_rows]},
+                    )
+                    session.add(stop_review)
+                for position, reason in stop_rows:
+                    market = (
+                        "US"
+                        if PeerGroup(position.peer_group)
+                        in {PeerGroup.US_STOCK, PeerGroup.US_EQUITY_ETF}
+                        else "KR"
+                    )
+                    session.add(
+                        PaperOrderModel(
+                            id=str(uuid.uuid4()),
+                            idempotency_key=(
+                                f"{account_id}:{valuation_date.isoformat()}:{reason}:"
+                                f"{position.asset_id}"
+                            ),
+                            account_id=account_id,
+                            review_id=stop_review.id,
+                            asset_id=position.asset_id,
+                            symbol=position.symbol,
+                            name=position.name,
+                            peer_group=position.peer_group,
+                            sleeve=position.sleeve,
+                            currency=position.currency,
+                            side="SELL",
+                            status=PaperOrderStatus.PENDING.value,
+                            scheduled_date=delayed_trading_date(
+                                valuation_date,
+                                market,
+                                config.execution_delay_sessions,
+                            ),
+                            reason=reason,
+                        )
+                    )
 
             baseline = await session.scalar(
                 select(CandidateSnapshotModel).where(
@@ -740,8 +1020,17 @@ class ForwardService:
                     )
                     .filter((pl.col("eligible") >= 30) & pl.col("benchmark"))
                 )
-                if readiness.height != len(PeerGroup):
-                    raise RuntimeError("주간 평가에 필요한 여섯 비교군의 준비 조건이 부족합니다.")
+                enabled_groups = {
+                    group
+                    for group in PeerGroup
+                    if config.peer_group_slots[group] > 0
+                    and config.sleeve_weights_bps[PEER_GROUP_SLEEVE[group]] > 0
+                }
+                ready_groups = {
+                    PeerGroup(value) for value in readiness.get_column("peer_group").to_list()
+                }
+                if not enabled_groups.issubset(ready_groups):
+                    raise RuntimeError("평가에 필요한 활성 비교군의 준비 조건이 부족합니다.")
                 review = await session.scalar(
                     select(PaperReviewModel).where(
                         PaperReviewModel.account_id == account_id,
@@ -763,10 +1052,15 @@ class ForwardService:
                     review.status = "COMPLETED"
                 if account.started_at is None:
                     for sleeve in (Sleeve.US_STOCK, Sleeve.US_ETF):
-                        native = cash[sleeve].balance * (1 - 0.0025) / current_fx
+                        native = cash[sleeve].balance * (1 - config.initial_fx_cost) / current_fx
+                        target_ratio = (
+                            cash[sleeve].target_per_slot / cash[sleeve].balance
+                            if cash[sleeve].balance > 0
+                            else 0.0
+                        )
                         cash[sleeve].currency = "USD"
                         cash[sleeve].balance = native
-                        cash[sleeve].target_per_slot = native / 3
+                        cash[sleeve].target_per_slot = native * target_ratio
                     account.started_at = datetime.now(UTC)
                 domain_positions = {
                     asset_id: PortfolioPosition(
@@ -778,14 +1072,11 @@ class ForwardService:
                         currency=model.currency,
                         quantity=model.quantity,
                         last_score=model.last_score,
+                        highest_close=float(model.highest_close or model.last_price),
+                        last_volatility=float(model.last_volatility or 0.0),
                     )
                     for asset_id, model in positions.items()
                 }
-                config = PortfolioConfig(
-                    sleeve_weights_bps={
-                        Sleeve(key): int(value) for key, value in account.weights_json.items()
-                    }
-                )
                 plan = plan_weekly_orders(
                     latest.to_dicts(),
                     domain_positions,
@@ -823,7 +1114,11 @@ class ForwardService:
                             currency=str(row["currency"]),
                             side=planned.side,
                             status=PaperOrderStatus.PENDING.value,
-                            scheduled_date=next_trading_date(review_date, planned.market),
+                            scheduled_date=delayed_trading_date(
+                                review_date,
+                                planned.market,
+                                config.execution_delay_sessions,
+                            ),
                             reason=planned.reason,
                         )
                     )

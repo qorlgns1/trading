@@ -3,6 +3,7 @@ import csv
 import hashlib
 import html
 import io
+import shutil
 import uuid
 from dataclasses import asdict
 from datetime import timedelta
@@ -11,15 +12,21 @@ from typing import Any
 import orjson
 import polars as pl
 from quant_core import MARKET_EVENT_VERSION, REPLAY_ANALYSIS_VERSION, PortfolioConfig
-from quant_core.config import PORTFOLIO_VERSION, TREND_SCORE_VERSION
+from quant_core.config import (
+    PORTFOLIO_VERSION,
+    REPLAY_PORTFOLIO_VERSION,
+    REPLAY_SCORE_VERSION,
+    TREND_SCORE_VERSION,
+)
 from quant_core.enums import RunKind, RunStatus
 
 from quant_api.backtests import artifact_store
 from quant_api.database import BacktestRunModel, RunRepository
+from quant_api.replay_strategy import strategy_domain
 from quant_api.research_quality import QUALITY_POLICY_VERSION
 from quant_api.research_replay import REPLAY_ENGINE_VERSION, ReplayBuild, ResearchReplayEngine
 from quant_api.research_store import ResearchSnapshotStore
-from quant_api.schemas import ReplayCreate, ReplayResponse
+from quant_api.schemas import ReplayCreate, ReplayResponse, SleeveWeights
 from quant_api.settings import get_settings
 
 settings = get_settings()
@@ -28,17 +35,25 @@ snapshot_store = ResearchSnapshotStore(settings.research_root)
 replay_engine = ResearchReplayEngine(snapshot_store)
 
 
+class ReplayCancelled(RuntimeError):
+    pass
+
+
 def _canonical_hash(request: ReplayCreate, manifest: dict[str, Any]) -> str:
     payload = {
         "data_version": manifest["data_version"],
         "bars_sha256": manifest["bars_sha256"],
-        "score_version": TREND_SCORE_VERSION,
-        "portfolio_version": PORTFOLIO_VERSION,
+        "score_version": (
+            REPLAY_SCORE_VERSION if request.strategy is not None else TREND_SCORE_VERSION
+        ),
+        "portfolio_version": (
+            REPLAY_PORTFOLIO_VERSION if request.strategy is not None else PORTFOLIO_VERSION
+        ),
         "quality_policy": QUALITY_POLICY_VERSION,
         "market_event": MARKET_EVENT_VERSION,
         "replay_engine": REPLAY_ENGINE_VERSION,
         "replay_analysis": REPLAY_ANALYSIS_VERSION,
-        "request": request.model_dump(),
+        "request": request.model_dump(mode="json", exclude_none=True),
     }
     return hashlib.sha256(orjson.dumps(payload, option=orjson.OPT_SORT_KEYS)).hexdigest()
 
@@ -232,6 +247,17 @@ def response_from_model(model: BacktestRunModel) -> ReplayResponse:
     progress = 0.0 if total <= 0 else min(100.0, model.completed_units / total * 100)
     if model.status == RunStatus.SUCCEEDED.value:
         progress = 100.0
+    strategy = model.request_json.get("strategy") if isinstance(model.request_json, dict) else None
+    universe_mode = (
+        ((strategy or {}).get("data") or {}).get("universe_mode")
+        if isinstance(strategy, dict)
+        else None
+    )
+    bias_warning = (
+        "각 평가일에 유효한 시점 기준 종목군을 사용했습니다."
+        if universe_mode == "POINT_IN_TIME"
+        else "현재 상장 종목 기준으로 생존편향이 포함됩니다."
+    )
     return ReplayResponse(
         run_id=model.id,
         status=RunStatus(model.status),
@@ -245,6 +271,7 @@ def response_from_model(model: BacktestRunModel) -> ReplayResponse:
         config=model.request_json,
         result=model.result_summary,
         error_message=model.error_message,
+        bias_warning=bias_warning,
     )
 
 
@@ -257,15 +284,18 @@ async def create_replay(
     if manifest is None:
         raise RuntimeError("활성화된 실데이터 스냅샷이 없습니다.")
     digest = _canonical_hash(request, manifest)
-    cached = await repository.find_succeeded(digest, run_kind=RunKind.REAL_REPLAY.value)
+    run_kind = (
+        RunKind.REAL_REPLAY_V2.value if request.strategy is not None else RunKind.REAL_REPLAY.value
+    )
+    cached = await repository.find_succeeded(digest, run_kind=run_kind)
     if cached is not None:
         return cached, True
     run_id = str(uuid.uuid4())
     await repository.create(
         run_id,
         digest,
-        request.model_dump(),
-        run_kind=RunKind.REAL_REPLAY.value,
+        request.model_dump(mode="json", exclude_none=True),
+        run_kind=run_kind,
         data_version=str(manifest["data_version"]),
     )
     model = await repository.get(run_id)
@@ -281,12 +311,20 @@ async def execute_replay(run_id: str) -> None:
     loop = asyncio.get_running_loop()
 
     def progress(stage: str, completed: int, total: int) -> None:
+        cancelled = asyncio.run_coroutine_threadsafe(
+            repository.cancellation_requested(run_id), loop
+        ).result(timeout=30)
+        if cancelled:
+            raise ReplayCancelled("사용자가 과거 시뮬레이션을 취소했습니다.")
         future = asyncio.run_coroutine_threadsafe(
             repository.set_progress(run_id, stage, completed, total), loop
         )
         future.result(timeout=30)
 
     try:
+        if await repository.cancellation_requested(run_id):
+            await repository.set_cancelled(run_id)
+            return
         snapshot_store.acquire_lease(model.data_version, run_id)
     except Exception as error:
         await repository.set_failed(run_id, str(error))
@@ -294,17 +332,40 @@ async def execute_replay(run_id: str) -> None:
     try:
         await repository.set_running(run_id)
         request = ReplayCreate.model_validate(model.request_json)
-        config = PortfolioConfig(sleeve_weights_bps=request.sleeve_weights_bps.as_domain())
+        if request.strategy is None:
+            config = PortfolioConfig(
+                sleeve_weights_bps=(request.sleeve_weights_bps or SleeveWeights()).as_domain()
+            )
+            engine_options: dict[str, Any] = {}
+        else:
+            score_config, config = strategy_domain(request.strategy)
+            engine_options = {
+                "score_config": score_config,
+                "start_date": request.strategy.data.start_date,
+                "split_date": request.strategy.data.split_date,
+                "end_date": request.strategy.data.end_date,
+                "universe_mode": request.strategy.data.universe_mode,
+                "walk_forward_train_years": (request.strategy.validation.walk_forward_train_years),
+                "walk_forward_test_years": request.strategy.validation.walk_forward_test_years,
+                "walk_forward_step_years": request.strategy.validation.walk_forward_step_years,
+            }
         build = await asyncio.to_thread(
             replay_engine.run,
             run_id,
             data_version=model.data_version,
             portfolio_config=config,
             progress=progress,
+            **engine_options,
         )
         build.result.config_hash = model.config_hash[:16]
         payload = build.result.as_dict()
         payload["analysis"] = build.analysis.analysis
+        payload["strategy_config"] = (
+            request.strategy.model_dump(mode="json") if request.strategy is not None else None
+        )
+        payload["validation"] = build.validation
+        payload["walk_forward"] = build.walk_forward
+        payload["stress_tests"] = build.stress_tests
         parquet = io.BytesIO()
         pl.DataFrame(payload["equity_curve"]).write_parquet(parquet)
         round_trip_rows = _round_trip_rows(build)
@@ -320,6 +381,23 @@ async def execute_replay(run_id: str) -> None:
                 orjson.dumps(build.analysis.analysis),
                 "application/json",
             ),
+            "strategy-config.json": (
+                orjson.dumps(payload["strategy_config"]),
+                "application/json",
+            ),
+            "validation.json": (
+                orjson.dumps(payload["validation"]),
+                "application/json",
+            ),
+            "robustness.json": (
+                orjson.dumps(
+                    {
+                        "walk_forward": payload["walk_forward"],
+                        "stress_tests": payload["stress_tests"],
+                    }
+                ),
+                "application/json",
+            ),
             "equity.parquet": (
                 parquet.getvalue(),
                 "application/vnd.apache.parquet",
@@ -333,6 +411,13 @@ async def execute_replay(run_id: str) -> None:
                 "application/vnd.apache.parquet",
             ),
         }
+        if request.strategy is None:
+            for legacy_optional in (
+                "strategy-config.json",
+                "validation.json",
+                "robustness.json",
+            ):
+                artifacts.pop(legacy_optional)
         for name, (content, content_type) in artifacts.items():
             object_key = f"research-runs/{run_id}/{name}"
             size = artifact_store.put(object_key, content, content_type)
@@ -352,8 +437,14 @@ async def execute_replay(run_id: str) -> None:
             "cache_hit": build.cache_hit,
             "cache_key": build.cache_key,
             "analysis": build.analysis.analysis,
+            "strategy_config": payload["strategy_config"],
+            "validation": payload["validation"],
+            "walk_forward": payload["walk_forward"],
+            "stress_tests": payload["stress_tests"],
         }
         await repository.set_succeeded(run_id, summary)
+    except ReplayCancelled:
+        await repository.set_cancelled(run_id)
     except Exception as error:
         await repository.set_failed(run_id, str(error))
         raise
@@ -377,7 +468,17 @@ async def artifact_responses(run_id: str) -> list[dict[str, Any]]:
 
 
 async def recover_interrupted_replays() -> None:
-    interrupted = await repository.fail_interrupted(run_kind=RunKind.REAL_REPLAY.value)
-    for run_id, data_version in interrupted:
-        if data_version is not None:
-            snapshot_store.release_lease(data_version, run_id)
+    for run_kind in (
+        RunKind.REAL_REPLAY.value,
+        RunKind.REAL_REPLAY_V2.value,
+        RunKind.REPLAY_SWEEP.value,
+    ):
+        interrupted = await repository.fail_interrupted(run_kind=run_kind)
+        for run_id, data_version in interrupted:
+            if data_version is not None:
+                snapshot_store.release_lease(data_version, run_id)
+            if run_kind == RunKind.REPLAY_SWEEP.value:
+                shutil.rmtree(
+                    snapshot_store.root / "sweep-work" / run_id,
+                    ignore_errors=True,
+                )

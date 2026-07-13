@@ -11,6 +11,7 @@ from quant_core.market_portfolio import (
     prepare_market_replay,
     run_market_replay,
     simulate_prepared_replay,
+    slice_prepared_replay,
 )
 from quant_core.replay_analysis import (
     REPLAY_ANALYSIS_VERSION,
@@ -18,6 +19,7 @@ from quant_core.replay_analysis import (
     ReplayInvariantError,
     analyze_replay,
 )
+from quant_core.replay_validation import REPLAY_VALIDATION_VERSION
 from quant_core.scoring import explain_result, score_trends
 from quant_core.synthetic import DEMO_DATA_VERSION, generate_demo_market
 
@@ -25,6 +27,7 @@ __all__ = [
     "DEMO_DATA_VERSION",
     "MARKET_EVENT_VERSION",
     "REPLAY_ANALYSIS_VERSION",
+    "REPLAY_VALIDATION_VERSION",
     "MarketReplayRun",
     "PortfolioConfig",
     "PortfolioPosition",
@@ -41,4 +44,5 @@ __all__ = [
     "run_reference_backtest",
     "score_trends",
     "simulate_prepared_replay",
+    "slice_prepared_replay",
 ]

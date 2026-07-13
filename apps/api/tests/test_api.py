@@ -4,6 +4,19 @@ from quant_api.main import app
 
 def test_meta_and_screener_expose_demo_contract() -> None:
     with TestClient(app) as client:
+        strategy = {
+            "data": {
+                "start_date": "2017-01-01",
+                "split_date": "2021-01-01",
+                "end_date": "2025-01-01",
+            }
+        }
+        experiment = {
+            "name": "공개 차단 검사",
+            "hypothesis": "공개 모드에서 실행되지 않는다.",
+            "objective": "BALANCED",
+            "baseline_strategy": strategy,
+        }
         meta = client.get("/api/v1/meta")
         assert meta.status_code == 200
         assert meta.json()["app_mode"] == "public_demo"
@@ -25,8 +38,40 @@ def test_meta_and_screener_expose_demo_contract() -> None:
         assert quality_csv.status_code == 403
         assert client.post("/api/v1/research/replays", json={}).status_code == 403
         assert client.get("/api/v1/research/replays/missing").status_code == 403
+        assert client.get("/api/v1/research/replay-options").status_code == 403
+        assert client.get("/api/v1/research/experiments").status_code == 403
+        assert client.post("/api/v1/research/experiments", json=experiment).status_code == 403
+        assert client.get("/api/v1/research/experiments/missing").status_code == 403
+        assert client.get("/api/v1/research/experiments/missing/comparison").status_code == 403
+        assert client.get("/api/v1/research/sweeps/missing").status_code == 403
+        assert client.post("/api/v1/research/replays/missing/cancel").status_code == 403
+        assert (
+            client.post(
+                "/api/v1/research/experiments/missing/runs",
+                json={"label": "도전", "strategy": strategy},
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                "/api/v1/research/experiments/missing/sweeps",
+                json={
+                    "base_strategy": strategy,
+                    "axes": [{"path": "signal.entry_score", "values": [65, 70]}],
+                },
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                "/api/v1/research/replays/missing/promote",
+                json={"account_type": "EXPERIMENT", "name": "검사"},
+            ).status_code
+            == 403
+        )
         assert client.get("/api/v1/research/candidate-history").status_code == 403
         assert client.post("/api/v1/forward/accounts", json={}).status_code == 403
+        assert client.get("/api/v1/forward/accounts").status_code == 403
         assert client.get("/api/v1/forward/accounts/current").status_code == 403
         assert client.get("/api/v1/admin/providers").status_code == 403
         assert client.post("/api/v1/admin/providers/toss/check").status_code == 403

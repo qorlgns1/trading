@@ -1,6 +1,13 @@
 import polars as pl
+from quant_core.config import TrendScoreConfig
 from quant_core.enums import CandidateState, PeerGroup
-from quant_core.scoring import explain_result, score_trends, warning_codes
+from quant_core.scoring import (
+    compute_trend_features,
+    explain_result,
+    project_trend_scores,
+    score_trends,
+    warning_codes,
+)
 from quant_core.synthetic import DEMO_DATA_VERSION, generate_demo_market
 
 
@@ -38,10 +45,7 @@ def test_unsupported_and_low_liquidity_assets_are_excluded() -> None:
 def test_explanations_are_deterministic_and_do_not_change_score() -> None:
     row = (
         _latest_scores()
-        .filter(
-            (pl.col("peer_group") == PeerGroup.US_STOCK.value)
-            & pl.col("candidate_eligible")
-        )
+        .filter((pl.col("peer_group") == PeerGroup.US_STOCK.value) & pl.col("candidate_eligible"))
         .sort("trend_score", descending=True)
         .row(0, named=True)
     )
@@ -53,3 +57,30 @@ def test_explanations_are_deterministic_and_do_not_change_score() -> None:
     assert len(first["warnings"]) <= 2
     assert warning_codes(row)
     assert row["trend_score"] == before
+
+
+def test_fixed_features_can_be_reprojected_with_strategy_weights() -> None:
+    features = compute_trend_features(generate_demo_market())
+    config = TrendScoreConfig(
+        component_weights_bps={
+            "long_term_trend": 10_000,
+            "absolute_momentum": 0,
+            "relative_strength": 0,
+            "high_proximity": 0,
+            "volatility_stability": 0,
+            "trading_activity": 0,
+        },
+        require_above_sma200=False,
+        require_positive_six_month=False,
+        require_absolute_liquidity=False,
+        require_order_size_liquidity=False,
+    )
+
+    projected = project_trend_scores(features, config)
+    latest = projected.filter(pl.col("date") == projected.get_column("date").max())
+
+    assert latest.filter(pl.col("absolute_momentum_score") != 0).is_empty()
+    assert latest.filter(pl.col("relative_strength_score") != 0).is_empty()
+    assert latest.filter(
+        pl.col("trend_score") != (pl.col("long_term_trend_unit") * 100).round(1)
+    ).is_empty()

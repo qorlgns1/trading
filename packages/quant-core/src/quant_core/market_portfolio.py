@@ -8,16 +8,30 @@ import numpy as np
 import polars as pl
 
 from quant_core.calendar import next_trading_date
-from quant_core.config import PEER_GROUP_SLEEVE, PEER_GROUP_SLOTS, PortfolioConfig
-from quant_core.enums import DataStatus, PeerGroup, Sleeve
+from quant_core.config import PEER_GROUP_SLEEVE, PortfolioConfig
+from quant_core.enums import (
+    DataStatus,
+    MarketGateMode,
+    PeerGroup,
+    PositionSizing,
+    ReplacementPolicy,
+    Sleeve,
+)
 from quant_core.metrics import calculate_metrics
 from quant_core.models import BacktestResult, PositionSnapshot, Trade
 
-MARKET_EVENT_VERSION = "market-event-v1.1.0"
+MARKET_EVENT_VERSION = "market-event-v2.0.0"
 
 
 def market_for_group(group: PeerGroup) -> str:
     return "US" if group in {PeerGroup.US_STOCK, PeerGroup.US_EQUITY_ETF} else "KR"
+
+
+def delayed_trading_date(current: date, market: str, sessions: int) -> date:
+    result = current
+    for _ in range(sessions):
+        result = next_trading_date(result, market)
+    return result
 
 
 @dataclass
@@ -40,6 +54,8 @@ class PortfolioPosition:
     cost_basis_krw: float = 0.0
     entry_cost_krw: float = 0.0
     dividends_krw: float = 0.0
+    highest_close: float = 0.0
+    last_volatility: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +68,7 @@ class PlannedOrder:
     decision_date: date | None = None
     signal_date: date | None = None
     score: float | None = None
+    volatility: float | None = None
 
 
 @dataclass(frozen=True)
@@ -142,6 +159,42 @@ class MarketReplayRun:
     benchmark_values: list[float]
 
 
+def slice_prepared_replay(
+    prepared: PreparedMarketReplay,
+    *,
+    start: date,
+    end: date,
+) -> PreparedMarketReplay:
+    """Create an independent replay window without changing the cached market matrices."""
+    indexes = [index for index, current in enumerate(prepared.dates) if start <= current <= end]
+    if len(indexes) < 2:
+        raise ValueError("독립 재생 구간에는 두 개 이상의 평가일이 필요합니다.")
+    first, last = indexes[0], indexes[-1] + 1
+    dates = prepared.dates[first:last]
+    date_set = set(dates)
+    signals = {
+        current: rows for current, rows in prepared.signals_by_review.items() if current in date_set
+    }
+    return PreparedMarketReplay(
+        signals_by_review=signals,
+        review_dates=[current for current in prepared.review_dates if current in date_set],
+        dates=dates,
+        candidate_ids=prepared.candidate_ids,
+        metadata=prepared.metadata,
+        asset_index=prepared.asset_index,
+        open_prices=prepared.open_prices[first:last],
+        close_prices=prepared.close_prices[first:last],
+        split_ratios=prepared.split_ratios[first:last],
+        dividends=prepared.dividends[first:last],
+        recovery_values=prepared.recovery_values[first:last],
+        fx_by_date={current: prepared.fx_by_date[current] for current in dates},
+        benchmark_indexes={
+            sleeve: values[first:last] / values[first]
+            for sleeve, values in prepared.benchmark_indexes.items()
+        },
+    )
+
+
 def _row_is_usable(row: dict[str, Any] | None) -> bool:
     if row is None:
         return False
@@ -162,10 +215,15 @@ def plan_weekly_orders(
     config = config or PortfolioConfig()
     pending_sell_ids = pending_sell_ids or set()
     by_asset = {str(row["asset_id"]): row for row in rows}
+    reviewed_groups = {
+        PeerGroup(str(row["peer_group"])) for row in rows if row.get("peer_group") is not None
+    }
     orders: list[PlannedOrder] = []
     review_required: set[str] = set()
 
     for asset_id, position in sorted(positions.items()):
+        if position.peer_group not in reviewed_groups:
+            continue
         if asset_id in pending_sell_ids:
             continue
         row = by_asset.get(asset_id)
@@ -174,7 +232,9 @@ def plan_weekly_orders(
             continue
         assert row is not None
         failed_gate = not bool(row.get("candidate_eligible"))
-        fell_below_exit = float(row.get("trend_score") or 0) < config.exit_score
+        fell_below_exit = float(row.get("trend_score") or 0) < config.exit_score_for(
+            position.peer_group
+        )
         if failed_gate or fell_below_exit:
             orders.append(
                 PlannedOrder(
@@ -189,28 +249,39 @@ def plan_weekly_orders(
 
     held_assets = set(positions)
     for group in PeerGroup:
+        if group not in reviewed_groups:
+            continue
         sleeve = PEER_GROUP_SLEEVE[group]
-        if config.sleeve_weights_bps[sleeve] == 0:
+        slot_limit = config.peer_group_slots[group]
+        if config.sleeve_weights_bps[sleeve] == 0 or slot_limit == 0:
             continue
-        held_count = sum(positions[asset_id].peer_group is group for asset_id in held_assets)
-        vacancies = PEER_GROUP_SLOTS[group] - held_count
-        if vacancies <= 0:
-            continue
+        group_positions = [
+            position
+            for asset_id, position in positions.items()
+            if position.peer_group is group and asset_id not in pending_sell_ids
+        ]
+        held_count = len(group_positions)
+        vacancies = max(0, slot_limit - held_count)
         group_rows = [row for row in rows if row.get("peer_group") == group.value]
         benchmark_row = next(
             (row for row in group_rows if row.get("benchmark_sma200") is not None),
             None,
         )
-        if benchmark_row is None or float(benchmark_row["benchmark_close"]) <= float(
-            benchmark_row["benchmark_sma200"]
-        ):
+        market_allowed = config.market_gate_mode is MarketGateMode.OFF or (
+            benchmark_row is not None
+            and benchmark_row.get("benchmark_close") is not None
+            and benchmark_row.get("benchmark_sma200") is not None
+            and float(benchmark_row["benchmark_close"]) > float(benchmark_row["benchmark_sma200"])
+        )
+        if not market_allowed:
             continue
+        entry_score = config.entry_score_for(group)
         candidates = [
             row
             for row in group_rows
             if _row_is_usable(row)
             and bool(row.get("candidate_eligible"))
-            and float(row.get("trend_score") or 0) >= config.entry_score
+            and float(row.get("trend_score") or 0) >= entry_score
             and str(row["asset_id"]) not in held_assets
             and str(row["asset_id"]) not in pending_sell_ids
         ]
@@ -221,7 +292,8 @@ def plan_weekly_orders(
                 str(row["asset_id"]),
             )
         )
-        for candidate in candidates[:vacancies]:
+        selected = candidates[:vacancies]
+        for candidate in selected:
             orders.append(
                 PlannedOrder(
                     side="BUY",
@@ -230,7 +302,54 @@ def plan_weekly_orders(
                     market=market_for_group(group),
                     signal_date=candidate.get("signal_date"),
                     score=float(candidate.get("trend_score") or 0),
+                    volatility=(
+                        float(candidate["vol60"]) if candidate.get("vol60") is not None else None
+                    ),
                 )
+            )
+        if config.replacement_policy is not ReplacementPolicy.TOP_SCORE_REBALANCE:
+            continue
+        remaining_candidates = candidates[vacancies:]
+        row_by_asset = {str(row["asset_id"]): row for row in group_rows}
+        replaceable = sorted(
+            group_positions,
+            key=lambda position: (
+                float((row_by_asset.get(position.asset_id) or {}).get("trend_score") or 0),
+                position.asset_id,
+            ),
+        )
+        for candidate, position in zip(remaining_candidates, replaceable, strict=False):
+            held_row = row_by_asset.get(position.asset_id)
+            if held_row is None or not _row_is_usable(held_row):
+                continue
+            held_score = float(held_row.get("trend_score") or 0)
+            candidate_score = float(candidate.get("trend_score") or 0)
+            if candidate_score < held_score + config.replacement_score_gap:
+                continue
+            orders.extend(
+                [
+                    PlannedOrder(
+                        side="SELL",
+                        asset_id=position.asset_id,
+                        reason="HIGHER_SCORE_REPLACEMENT",
+                        market=market_for_group(group),
+                        signal_date=held_row.get("signal_date"),
+                        score=held_score,
+                    ),
+                    PlannedOrder(
+                        side="BUY",
+                        asset_id=str(candidate["asset_id"]),
+                        reason="HIGHER_SCORE_REPLACEMENT",
+                        market=market_for_group(group),
+                        signal_date=candidate.get("signal_date"),
+                        score=candidate_score,
+                        volatility=(
+                            float(candidate["vol60"])
+                            if candidate.get("vol60") is not None
+                            else None
+                        ),
+                    ),
+                ]
             )
     return ReviewPlan(orders=orders, review_required_assets=review_required)
 
@@ -283,8 +402,7 @@ def _benchmark_indexes(
         Sleeve.US_STOCK: normalized[PeerGroup.US_STOCK],
         Sleeve.US_ETF: normalized[PeerGroup.US_EQUITY_ETF],
         Sleeve.KR_STOCK: (
-            normalized[PeerGroup.KR_KOSPI] * (2 / 3)
-            + normalized[PeerGroup.KR_KOSDAQ] * (1 / 3)
+            normalized[PeerGroup.KR_KOSPI] * (2 / 3) + normalized[PeerGroup.KR_KOSDAQ] * (1 / 3)
         ),
         Sleeve.KR_ETF: (
             normalized[PeerGroup.KR_DOMESTIC_EQUITY_ETF] * (2 / 3)
@@ -293,9 +411,7 @@ def _benchmark_indexes(
     }
 
 
-def _combined_benchmark(
-    prepared: PreparedMarketReplay, config: PortfolioConfig
-) -> np.ndarray:
+def _combined_benchmark(prepared: PreparedMarketReplay, config: PortfolioConfig) -> np.ndarray:
     combined = np.zeros(len(prepared.dates))
     for sleeve, values in prepared.benchmark_indexes.items():
         combined += values * (config.sleeve_weights_bps[sleeve] / 10_000)
@@ -313,14 +429,19 @@ def prepare_market_replay(
     """Build immutable market matrices once for actual and counterfactual simulations."""
     config = portfolio_config or PortfolioConfig()
     if weekly_signals.is_empty():
-        raise ValueError("완결된 주간 신호가 없습니다.")
+        raise ValueError("완결된 평가 신호가 없습니다.")
     signals = weekly_signals.sort(["review_date", "peer_group", "asset_id"])
     review_dates = signals.get_column("review_date").unique().sort().to_list()
     first_review = review_dates[0]
+    entry_threshold = pl.col("peer_group").replace_strict(
+        {group.value: config.entry_score_for(group) for group in PeerGroup},
+        default=config.entry_score,
+        return_dtype=pl.Float64,
+    )
     candidate_ids = (
         signals.filter(
             pl.col("candidate_eligible").fill_null(False)
-            & (pl.col("trend_score") >= config.entry_score)
+            & (pl.col("trend_score") >= entry_threshold)
         )
         .get_column("asset_id")
         .unique()
@@ -328,15 +449,11 @@ def prepare_market_replay(
     )
     if not candidate_ids:
         raise ValueError("재생 기간에 진입 가능한 후보가 없습니다.")
-    filtered_bars = bars.filter(pl.col("asset_id").is_in(candidate_ids)).sort(
-        ["date", "asset_id"]
-    )
+    filtered_bars = bars.filter(pl.col("asset_id").is_in(candidate_ids)).sort(["date", "asset_id"])
     metadata_source = asset_metadata if asset_metadata is not None else filtered_bars
     metadata = {
         str(row["asset_id"]): row
-        for row in metadata_source.select(
-            "asset_id", "symbol", "name", "peer_group", "currency"
-        )
+        for row in metadata_source.select("asset_id", "symbol", "name", "peer_group", "currency")
         .unique("asset_id")
         .iter_rows(named=True)
     }
@@ -355,9 +472,7 @@ def prepare_market_replay(
         raise ValueError("성과 계산에 필요한 평가일이 부족합니다.")
     filtered_bars = filtered_bars.filter(pl.col("date") >= first_review)
     fx_frame = (
-        reference.group_by("date")
-        .agg(pl.col("fx_krw_per_usd").drop_nulls().last())
-        .sort("date")
+        reference.group_by("date").agg(pl.col("fx_krw_per_usd").drop_nulls().last()).sort("date")
     )
     fx_joined = (
         pl.DataFrame({"date": all_dates})
@@ -367,8 +482,7 @@ def prepare_market_replay(
     if fx_joined.get_column("fx_krw_per_usd").null_count() > 0:
         raise ValueError("재생 기간의 환율을 정렬할 수 없습니다.")
     fx_by_date = {
-        row["date"]: float(row["fx_krw_per_usd"])
-        for row in fx_joined.iter_rows(named=True)
+        row["date"]: float(row["fx_krw_per_usd"]) for row in fx_joined.iter_rows(named=True)
     }
     return PreparedMarketReplay(
         signals_by_review=by_review,
@@ -450,16 +564,21 @@ def simulate_prepared_replay(
     initial_fx = prepared.fx_by_date[prepared.dates[0]]
     cash: dict[Sleeve, float] = {}
     target_per_slot: dict[Sleeve, float] = {}
+    initial_native_allocation: dict[Sleeve, float] = {}
     initial_fx_costs: dict[Sleeve, float] = {}
     for sleeve in Sleeve:
         allocation_krw = config.initial_capital_krw * config.sleeve_weights_bps[sleeve] / 10_000
         is_us = sleeve in {Sleeve.US_STOCK, Sleeve.US_ETF}
         initial_cost = allocation_krw * config.initial_fx_cost if is_us else 0.0
-        native = (
-            (allocation_krw - initial_cost) / initial_fx if is_us else allocation_krw
-        )
+        native = (allocation_krw - initial_cost) / initial_fx if is_us else allocation_krw
         cash[sleeve] = native
-        target_per_slot[sleeve] = native / 3
+        initial_native_allocation[sleeve] = native
+        sleeve_slots = sum(
+            config.peer_group_slots[group]
+            for group, mapped_sleeve in PEER_GROUP_SLEEVE.items()
+            if mapped_sleeve is sleeve
+        )
+        target_per_slot[sleeve] = native / max(sleeve_slots, 1)
         initial_fx_costs[sleeve] = initial_cost
 
     positions: dict[str, PortfolioPosition] = {}
@@ -531,6 +650,30 @@ def simulate_prepared_replay(
                 )
                 del positions[asset_id]
 
+        due_orders = [
+            order
+            for order in pending
+            if order.scheduled_date is not None and current_date >= order.scheduled_date
+        ]
+        due_sell_ids = {order.asset_id for order in due_orders if order.side == "SELL"}
+        projected_inverse_total = {sleeve: 0.0 for sleeve in Sleeve}
+        if config.position_sizing is PositionSizing.INVERSE_VOLATILITY:
+            for asset_id, position in positions.items():
+                if asset_id not in due_sell_ids:
+                    projected_inverse_total[position.sleeve] += 1 / max(
+                        position.last_volatility, 0.05
+                    )
+            for order in due_orders:
+                if order.side != "BUY" or order.asset_id in positions:
+                    continue
+                asset = prepared.metadata.get(order.asset_id)
+                if asset is None:
+                    continue
+                group = PeerGroup(asset["peer_group"])
+                projected_inverse_total[PEER_GROUP_SLEEVE[group]] += 1 / max(
+                    float(order.volatility or 0.05), 0.05
+                )
+
         remaining: list[PlannedOrder] = []
         for order in sorted(pending, key=lambda item: item.side != "SELL"):
             if order.scheduled_date is None or current_date < order.scheduled_date:
@@ -539,22 +682,24 @@ def simulate_prepared_replay(
             order_column = prepared.asset_index.get(order.asset_id)
             if order_column is None:
                 continue
-            price = prepared.open_prices[date_index, order_column]
-            if np.isnan(price) or price <= 0:
+            raw_price = prepared.open_prices[date_index, order_column]
+            if np.isnan(raw_price) or raw_price <= 0:
                 remaining.append(order)
                 continue
             asset = prepared.metadata[order.asset_id]
             group = PeerGroup(asset["peer_group"])
             sleeve = PEER_GROUP_SLEEVE[group]
             currency = str(asset["currency"])
-            cost_rate = config.us_trade_cost if currency == "USD" else config.kr_trade_cost
+            slippage = config.slippage_bps / 10_000
+            price = float(raw_price) * (1 + slippage if order.side == "BUY" else 1 - slippage)
+            cost_rate = config.trade_cost(currency, order.side)
             multiplier = _native_multiplier(currency, current_fx)
             if order.side == "SELL":
                 sell_position = positions.get(order.asset_id)
                 if sell_position is None:
                     continue
                 quantity = sell_position.quantity
-                notional = quantity * float(price)
+                notional = quantity * price
                 cost_value = notional * cost_rate
                 cost_krw = cost_value * multiplier
                 cash[sleeve] += notional - cost_value
@@ -564,7 +709,7 @@ def simulate_prepared_replay(
                         sell_position,
                         status="CLOSED",
                         current_date=current_date,
-                        current_price=float(price),
+                        current_price=price,
                         current_fx=current_fx,
                         exit_cost_krw=cost_krw,
                         exit_reason=order.reason,
@@ -575,11 +720,17 @@ def simulate_prepared_replay(
             else:
                 if order.asset_id in positions:
                     continue
-                spendable = min(target_per_slot[sleeve], cash[sleeve])
-                quantity = math.floor(spendable / (float(price) * (1 + cost_rate)))
+                target = target_per_slot[sleeve]
+                if config.position_sizing is PositionSizing.INVERSE_VOLATILITY:
+                    inverse = 1 / max(float(order.volatility or 0.05), 0.05)
+                    total_inverse = projected_inverse_total[sleeve]
+                    if total_inverse > 0:
+                        target = initial_native_allocation[sleeve] * inverse / total_inverse
+                spendable = min(target, cash[sleeve])
+                quantity = math.floor(spendable / (price * (1 + cost_rate)))
                 if quantity < 1:
                     continue
-                notional = quantity * float(price)
+                notional = quantity * price
                 cost_value = notional * cost_rate
                 cost_krw = cost_value * multiplier
                 cash[sleeve] -= notional + cost_value
@@ -597,11 +748,13 @@ def simulate_prepared_replay(
                     decision_date=order.decision_date,
                     signal_date=order.signal_date,
                     entry_score=float(order.score or 0),
-                    entry_price=float(price),
+                    entry_price=price,
                     entry_fx=current_fx,
                     entry_notional_krw=notional * multiplier,
                     cost_basis_krw=(notional + cost_value) * multiplier,
                     entry_cost_krw=cost_krw,
+                    highest_close=price,
+                    last_volatility=float(order.volatility or 0.0),
                 )
             total_notional_krw += notional * multiplier
             trades.append(
@@ -611,7 +764,7 @@ def simulate_prepared_replay(
                     symbol=str(asset["symbol"]),
                     side=order.side,
                     quantity=quantity,
-                    price=round(float(price), 4),
+                    price=round(price, 4),
                     notional=round(notional, 2),
                     cost=round(cost_value, 2),
                     currency=currency,
@@ -625,6 +778,40 @@ def simulate_prepared_replay(
 
         available = ~np.isnan(prepared.close_prices[date_index])
         last_prices[available] = prepared.close_prices[date_index, available]
+        pending_sell_ids = {order.asset_id for order in pending if order.side == "SELL"}
+        for asset_id, position in positions.items():
+            close_price = prepared.close_prices[date_index, prepared.asset_index[asset_id]]
+            if np.isnan(close_price) or close_price <= 0:
+                continue
+            position.highest_close = max(position.highest_close, float(close_price))
+            reason: str | None = None
+            if config.fixed_stop_loss is not None and float(close_price) <= position.entry_price * (
+                1 - config.fixed_stop_loss
+            ):
+                reason = "FIXED_STOP"
+            elif config.trailing_stop_loss is not None and float(
+                close_price
+            ) <= position.highest_close * (1 - config.trailing_stop_loss):
+                reason = "TRAILING_STOP"
+            if reason is None or asset_id in pending_sell_ids:
+                continue
+            market = market_for_group(position.peer_group)
+            pending.append(
+                PlannedOrder(
+                    side="SELL",
+                    asset_id=asset_id,
+                    reason=reason,
+                    market=market,
+                    scheduled_date=delayed_trading_date(
+                        current_date, market, config.execution_delay_sessions
+                    ),
+                    decision_date=current_date,
+                    signal_date=current_date,
+                    score=position.last_score,
+                    volatility=position.last_volatility,
+                )
+            )
+            pending_sell_ids.add(asset_id)
         sleeve_cash_krw: dict[Sleeve, float] = {}
         sleeve_position_krw = {sleeve: 0.0 for sleeve in Sleeve}
         sleeve_counts = {sleeve: 0 for sleeve in Sleeve}
@@ -638,9 +825,7 @@ def simulate_prepared_replay(
             if np.isnan(price):
                 continue
             market_value = (
-                position.quantity
-                * float(price)
-                * _native_multiplier(position.currency, current_fx)
+                position.quantity * float(price) * _native_multiplier(position.currency, current_fx)
             )
             sleeve_position_krw[position.sleeve] += market_value
             sleeve_counts[position.sleeve] += 1
@@ -659,9 +844,7 @@ def simulate_prepared_replay(
                     position_value_krw=sleeve_position_krw[sleeve],
                     equity_krw=sleeve_equity,
                     exposure=(
-                        sleeve_position_krw[sleeve] / sleeve_equity
-                        if sleeve_equity > 0
-                        else 0.0
+                        sleeve_position_krw[sleeve] / sleeve_equity if sleeve_equity > 0 else 0.0
                     ),
                     positions_count=sleeve_counts[sleeve],
                     transaction_cost_krw=daily_costs[sleeve],
@@ -682,11 +865,16 @@ def simulate_prepared_replay(
         rows = prepared.signals_by_review.get(current_date)
         if rows is None:
             continue
-        pending = [order for order in pending if order.side == "SELL"]
+        review_markets = {
+            market_for_group(PeerGroup(str(row["peer_group"])))
+            for row in rows
+            if row.get("peer_group") is not None
+        }
+        pending = [
+            order for order in pending if order.side == "SELL" or order.market not in review_markets
+        ]
         pending_sells = {order.asset_id for order in pending}
-        plan = plan_weekly_orders(
-            rows, positions, config=config, pending_sell_ids=pending_sells
-        )
+        plan = plan_weekly_orders(rows, positions, config=config, pending_sell_ids=pending_sells)
         review_required.update(plan.review_required_assets)
         for group in PeerGroup:
             group_rows = [row for row in rows if row.get("peer_group") == group.value]
@@ -697,10 +885,13 @@ def simulate_prepared_replay(
                 group_rows[0],
             )
             allowed = bool(
-                benchmark_row.get("benchmark_close") is not None
-                and benchmark_row.get("benchmark_sma200") is not None
-                and float(benchmark_row["benchmark_close"])
-                > float(benchmark_row["benchmark_sma200"])
+                config.market_gate_mode is MarketGateMode.OFF
+                or (
+                    benchmark_row.get("benchmark_close") is not None
+                    and benchmark_row.get("benchmark_sma200") is not None
+                    and float(benchmark_row["benchmark_close"])
+                    > float(benchmark_row["benchmark_sma200"])
+                )
             )
             held = sum(position.peer_group is group for position in positions.values())
             group_orders = [
@@ -725,7 +916,7 @@ def simulate_prepared_replay(
                     candidate_count=sum(
                         _row_is_usable(row)
                         and bool(row.get("candidate_eligible"))
-                        and float(row.get("trend_score") or 0) >= config.entry_score
+                        and float(row.get("trend_score") or 0) >= config.entry_score_for(group)
                         for row in group_rows
                     ),
                     held_count=held,
@@ -743,6 +934,8 @@ def simulate_prepared_replay(
             asset_id = str(row["asset_id"])
             if asset_id in positions and _row_is_usable(row):
                 positions[asset_id].last_score = float(row["trend_score"])
+                if row.get("vol60") is not None:
+                    positions[asset_id].last_volatility = float(row["vol60"])
                 review_required.discard(asset_id)
         for order in plan.orders:
             pending.append(
@@ -751,10 +944,13 @@ def simulate_prepared_replay(
                     asset_id=order.asset_id,
                     reason=order.reason,
                     market=order.market,
-                    scheduled_date=next_trading_date(current_date, order.market),
+                    scheduled_date=delayed_trading_date(
+                        current_date, order.market, config.execution_delay_sessions
+                    ),
                     decision_date=current_date,
                     signal_date=order.signal_date,
                     score=order.score,
+                    volatility=order.volatility,
                 )
             )
 
@@ -788,9 +984,7 @@ def simulate_prepared_replay(
                 quantity=position.quantity,
                 price=round(price, 4),
                 market_value_krw=round(
-                    position.quantity
-                    * price
-                    * _native_multiplier(position.currency, final_fx),
+                    position.quantity * price * _native_multiplier(position.currency, final_fx),
                     0,
                 ),
                 score=round(position.last_score, 1),

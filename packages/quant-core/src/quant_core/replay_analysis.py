@@ -7,8 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from quant_core.calendar import next_trading_date
-from quant_core.config import PEER_GROUP_SLEEVE, PEER_GROUP_SLOTS, PortfolioConfig
+from quant_core.config import PEER_GROUP_SLEEVE, PortfolioConfig
 from quant_core.enums import PeerGroup, Sleeve
 from quant_core.market_portfolio import (
     DailyLedgerRow,
@@ -16,10 +15,11 @@ from quant_core.market_portfolio import (
     PreparedMarketReplay,
     ReviewLedgerRow,
     RoundTrip,
+    delayed_trading_date,
     market_for_group,
 )
 
-REPLAY_ANALYSIS_VERSION = "replay-analysis-v1.0.0"
+REPLAY_ANALYSIS_VERSION = "replay-analysis-v2.0.0"
 
 
 class ReplayInvariantError(RuntimeError):
@@ -157,13 +157,9 @@ def _sleeve_attribution(
                 "pnl_krw": round(pnl, 2),
                 "return": round(_period_return(ending, initial), 6) if initial > 0 else 0.0,
                 "contribution": round(pnl / config.initial_capital_krw, 6),
-                "average_exposure": round(
-                    float(np.mean([row.exposure for row in sleeve_rows])), 6
-                ),
+                "average_exposure": round(float(np.mean([row.exposure for row in sleeve_rows])), 6),
                 "trade_count": trade_counts[sleeve],
-                "cost_krw": round(
-                    sum(row.transaction_cost_krw for row in sleeve_rows), 0
-                ),
+                "cost_krw": round(sum(row.transaction_cost_krw for row in sleeve_rows), 0),
                 "dividend_krw": round(sum(row.dividend_krw for row in sleeve_rows), 0),
             }
         )
@@ -185,9 +181,7 @@ def _trade_summary(round_trips: list[RoundTrip]) -> dict[str, Any]:
         "win_rate": round(len(wins) / len(closed), 6) if closed else 0.0,
         "average_gain": round(average_gain, 6),
         "average_loss": round(average_loss, 6),
-        "payoff_ratio": round(average_gain / abs(average_loss), 4)
-        if average_loss < 0
-        else 0.0,
+        "payoff_ratio": round(average_gain / abs(average_loss), 4) if average_loss < 0 else 0.0,
         "profit_factor": round(gross_profit / gross_loss, 4) if gross_loss > 0 else 0.0,
         "median_holding_days": round(float(median(item.holding_days for item in closed)), 1)
         if closed
@@ -270,9 +264,7 @@ def _market_regimes(review_ledger: list[ReviewLedgerRow]) -> list[dict[str, Any]
                 else 0.0,
                 "planned_buy_count": sum(row.planned_buy_count for row in rows),
                 "planned_sell_count": sum(row.planned_sell_count for row in rows),
-                "average_held_count": round(
-                    float(np.mean([row.held_count for row in rows])), 2
-                )
+                "average_held_count": round(float(np.mean([row.held_count for row in rows])), 2)
                 if rows
                 else 0.0,
             }
@@ -308,6 +300,7 @@ def _integrity_checks(
         )
         for trade in timed_trades
     )
+
     def used_first_valid_open(trade_index: int) -> bool:
         trade = timed_trades[trade_index]
         if trade.decision_date is None:
@@ -317,7 +310,11 @@ def _integrity_checks(
         if metadata is None or column is None:
             return False
         group = PeerGroup(str(metadata["peer_group"]))
-        scheduled = next_trading_date(trade.decision_date, market_for_group(group))
+        scheduled = delayed_trading_date(
+            trade.decision_date,
+            market_for_group(group),
+            config.execution_delay_sessions,
+        )
         for index, current in enumerate(prepared.dates):
             if current < scheduled:
                 continue
@@ -335,7 +332,7 @@ def _integrity_checks(
         for group in PeerGroup
         if actual.position_counts
         and max(int(row[group.value]) for row in actual.position_counts)
-        > PEER_GROUP_SLOTS[group]
+        > config.peer_group_slots[group]
     ]
     minimum_cash = min((row.cash_krw for row in actual.daily_ledger), default=0.0)
     ledger_by_date: dict[date, float] = defaultdict(float)
@@ -376,8 +373,8 @@ def _integrity_checks(
         ),
         _check(
             "MAX_POSITION_COUNT",
-            "최대 12종목",
-            max_positions <= 12,
+            "설정된 최대 보유 종목",
+            max_positions <= sum(config.peer_group_slots.values()),
             f"관측된 최대 보유 종목은 {max_positions}개입니다.",
         ),
         _check(

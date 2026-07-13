@@ -186,10 +186,10 @@ test("local replay history and forward tools stay usable", async ({ page }) => {
 
   await page.goto("/replays");
   await expect(
-    page.getByRole("heading", { name: "과거 시뮬레이션" }),
+    page.getByRole("heading", { name: "전략 실험실" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "재생 시작" })).toBeEnabled();
-  await expect(page.getByText("생존편향이 포함됩니다.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "새 실험" })).toBeVisible();
+  await expect(page.getByText(/생존편향이 포함됩니다/)).toBeVisible();
 
   await page.goto("/candidate-history");
   await expect(page.getByRole("heading", { name: "후보 이력" })).toBeVisible();
@@ -205,6 +205,47 @@ test("local replay history and forward tools stay usable", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "추적 시작" })).toBeEnabled();
 
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth + 1,
+  );
+  expect(overflow).toBe(false);
+});
+
+test("local strategy builder exposes the complete controlled experiment flow", async ({
+  page,
+}) => {
+  const meta = await page.request.get("/api/v1/meta");
+  const payload = await meta.json();
+  test.skip(
+    payload.app_mode !== "local_research",
+    "local real-data snapshot required",
+  );
+
+  await page.goto("/replays/new");
+  await expect(
+    page.getByRole("heading", { name: "새 전략 실험" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /균형/ })).toBeVisible();
+  await page.getByRole("button", { name: "점수" }).click();
+  await expect(page.getByRole("button", { name: /선별 진입/ })).toBeVisible();
+  const entryScore = page.getByRole("slider", {
+    name: "진입 점수",
+    exact: true,
+  });
+  await expect(entryScore).toBeVisible();
+  await page.getByLabel(/진입 점수 설명:/).focus();
+  await expect(page.getByRole("tooltip")).toContainText(
+    "공식 후보만 새로 매수",
+  );
+
+  await page.getByRole("button", { name: "포트폴리오" }).click();
+  await expect(page.getByLabel("종목 투자금")).toBeVisible();
+  await expect(page.getByLabel("보유 종목 교체")).toBeVisible();
+  await page.getByRole("button", { name: "위험·체결" }).click();
+  await expect(page.getByLabel("평가 주기")).toBeVisible();
+  await expect(page.getByText("워크포워드 검증")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
   );
@@ -269,7 +310,9 @@ test("local replay analysis tabs explain and validate a completed run", async ({
   await expect(
     page.getByRole("heading", { name: "재생 무결성 검사" }),
   ).toBeVisible();
-  await expect(page.getByText("최대 12종목", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("설정된 최대 보유 종목", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("통과", { exact: true }).first()).toBeVisible();
 
   const overflow = await page.evaluate(

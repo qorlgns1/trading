@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import AsyncIterator
 from datetime import date, datetime
 from pathlib import Path
@@ -41,6 +43,8 @@ class BacktestRunModel(Base):
     request_json: Mapped[dict[str, Any]] = mapped_column(JSON)
     result_summary: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancellation_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    parent_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -58,6 +62,47 @@ class ArtifactModel(Base):
     object_key: Mapped[str] = mapped_column(String(512), unique=True)
     content_type: Mapped[str] = mapped_column(String(128))
     size_bytes: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ReplayExperimentModel(Base):
+    __tablename__ = "replay_experiments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    hypothesis: Mapped[str] = mapped_column(String(500))
+    objective: Mapped[str] = mapped_column(String(32), index=True)
+    success_criteria_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    data_version: Mapped[str] = mapped_column(String(96), index=True)
+    universe_mode: Mapped[str] = mapped_column(String(32))
+    period_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(32), default="ACTIVE", index=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class ReplayExperimentRunModel(Base):
+    __tablename__ = "replay_experiment_runs"
+    __table_args__ = (UniqueConstraint("experiment_id", "run_id", name="uq_replay_experiment_run"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[str] = mapped_column(
+        ForeignKey("replay_experiments.id", ondelete="CASCADE"), index=True
+    )
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("backtest_runs.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(24), index=True)
+    label: Mapped[str] = mapped_column(String(80))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -156,9 +201,15 @@ class PaperAccountModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     active_slot: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)
+    account_type: Mapped[str] = mapped_column(String(16), default="BASELINE", index=True)
+    name: Mapped[str] = mapped_column(String(80), default="기준 포트폴리오")
     status: Mapped[str] = mapped_column(String(32), index=True)
     initial_capital_krw: Mapped[float] = mapped_column(Float)
     weights_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    strategy_config_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    strategy_config_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    source_experiment_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    source_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     score_version: Mapped[str] = mapped_column(String(64))
     portfolio_version: Mapped[str] = mapped_column(String(64))
     baseline_data_version: Mapped[str] = mapped_column(String(96))
@@ -271,6 +322,8 @@ class PaperPositionModel(Base):
     average_cost: Mapped[float] = mapped_column(Float)
     last_price: Mapped[float] = mapped_column(Float)
     last_score: Mapped[float] = mapped_column(Float)
+    highest_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last_volatility: Mapped[float | None] = mapped_column(Float, nullable=True)
     data_status: Mapped[str] = mapped_column(String(32))
     review_required: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
@@ -343,6 +396,7 @@ class RunRepository:
         *,
         run_kind: str = "DEMO_BACKTEST",
         data_version: str | None = None,
+        parent_run_id: str | None = None,
     ) -> None:
         async with self.session_factory() as session:
             session.add(
@@ -352,6 +406,7 @@ class RunRepository:
                     status="QUEUED",
                     run_kind=run_kind,
                     data_version=data_version,
+                    parent_run_id=parent_run_id,
                     stage="QUEUED",
                     request_json=request,
                 )
@@ -392,6 +447,36 @@ class RunRepository:
             status="FAILED",
             stage="FAILED",
             error_message=message[:2000],
+        )
+
+    async def request_cancel(self, run_id: str) -> BacktestRunModel:
+        async with self.session_factory() as session:
+            model = await session.get(BacktestRunModel, run_id)
+            if model is None:
+                raise KeyError(run_id)
+            if model.status in {"SUCCEEDED", "FAILED", "CANCELLED"}:
+                return model
+            model.cancellation_requested = True
+            if model.status == "QUEUED":
+                model.status = "CANCELLED"
+                model.stage = "CANCELLED"
+            await session.commit()
+            await session.refresh(model)
+            return model
+
+    async def cancellation_requested(self, run_id: str) -> bool:
+        async with self.session_factory() as session:
+            model = await session.get(BacktestRunModel, run_id)
+            if model is None:
+                raise KeyError(run_id)
+            return bool(model.cancellation_requested)
+
+    async def set_cancelled(self, run_id: str) -> None:
+        await self._update(
+            run_id,
+            status="CANCELLED",
+            stage="CANCELLED",
+            error_message=None,
         )
 
     async def set_progress(self, run_id: str, stage: str, completed: int, total: int) -> None:
@@ -451,3 +536,127 @@ class RunRepository:
         async with self.session_factory() as session:
             statement = select(ArtifactModel).where(ArtifactModel.run_id == run_id)
             return list((await session.scalars(statement)).all())
+
+
+class ReplayExperimentRepository:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession] = SessionFactory) -> None:
+        self.session_factory = session_factory
+
+    async def create(
+        self,
+        *,
+        experiment_id: str,
+        name: str,
+        hypothesis: str,
+        objective: str,
+        success_criteria: dict[str, Any],
+        data_version: str,
+        universe_mode: str,
+        period: dict[str, Any],
+    ) -> ReplayExperimentModel:
+        async with self.session_factory() as session:
+            model = ReplayExperimentModel(
+                id=experiment_id,
+                name=name,
+                hypothesis=hypothesis,
+                objective=objective,
+                success_criteria_json=success_criteria,
+                data_version=data_version,
+                universe_mode=universe_mode,
+                period_json=period,
+                status="ACTIVE",
+            )
+            session.add(model)
+            await session.commit()
+            await session.refresh(model)
+            return model
+
+    async def get(self, experiment_id: str) -> ReplayExperimentModel | None:
+        async with self.session_factory() as session:
+            return await session.get(ReplayExperimentModel, experiment_id)
+
+    async def list_experiments(
+        self, *, include_archived: bool = False
+    ) -> list[ReplayExperimentModel]:
+        async with self.session_factory() as session:
+            statement = select(ReplayExperimentModel)
+            if not include_archived:
+                statement = statement.where(ReplayExperimentModel.archived.is_(False))
+            statement = statement.order_by(ReplayExperimentModel.created_at.desc())
+            return list((await session.scalars(statement)).all())
+
+    async def update(
+        self,
+        experiment_id: str,
+        *,
+        name: str | None = None,
+        notes: str | None = None,
+        archived: bool | None = None,
+    ) -> ReplayExperimentModel:
+        async with self.session_factory() as session:
+            model = await session.get(ReplayExperimentModel, experiment_id)
+            if model is None:
+                raise KeyError(experiment_id)
+            if name is not None:
+                model.name = name
+            if notes is not None:
+                model.notes = notes
+            if archived is not None:
+                model.archived = archived
+                model.status = "ARCHIVED" if archived else "ACTIVE"
+            await session.commit()
+            await session.refresh(model)
+            return model
+
+    async def attach_run(
+        self,
+        experiment_id: str,
+        run_id: str,
+        *,
+        role: str,
+        label: str,
+    ) -> None:
+        async with self.session_factory() as session:
+            existing = (
+                await session.scalars(
+                    select(ReplayExperimentRunModel).where(
+                        ReplayExperimentRunModel.experiment_id == experiment_id,
+                        ReplayExperimentRunModel.run_id == run_id,
+                    )
+                )
+            ).first()
+            if existing is not None:
+                return
+            count = len(
+                list(
+                    (
+                        await session.scalars(
+                            select(ReplayExperimentRunModel).where(
+                                ReplayExperimentRunModel.experiment_id == experiment_id
+                            )
+                        )
+                    ).all()
+                )
+            )
+            session.add(
+                ReplayExperimentRunModel(
+                    experiment_id=experiment_id,
+                    run_id=run_id,
+                    role=role,
+                    label=label,
+                    sort_order=count,
+                )
+            )
+            await session.commit()
+
+    async def runs(
+        self, experiment_id: str
+    ) -> list[tuple[ReplayExperimentRunModel, BacktestRunModel]]:
+        async with self.session_factory() as session:
+            statement = (
+                select(ReplayExperimentRunModel, BacktestRunModel)
+                .join(BacktestRunModel, BacktestRunModel.id == ReplayExperimentRunModel.run_id)
+                .where(ReplayExperimentRunModel.experiment_id == experiment_id)
+                .order_by(ReplayExperimentRunModel.sort_order)
+            )
+            return [(link, run) for link, run in (await session.execute(statement)).all()]

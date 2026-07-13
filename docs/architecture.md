@@ -26,7 +26,7 @@ flowchart LR
     Score --> ScoreQuality[Score and coverage checks]
     ScoreQuality --> Snapshot[Atomic current snapshot]
     Snapshot --> API[FastAPI screener]
-    Snapshot --> Replay[Partitioned historical replay and attribution]
+    Snapshot --> Replay[Strategy experiments, validation, sweeps and attribution]
     Snapshot --> Forward[Candidate history and forward ledger]
 ```
 
@@ -37,7 +37,7 @@ flowchart LR
 - Every activated snapshot contains `quality/summary.json` and `quality/issues.parquet`. Failed-run reports are retained separately under `quality-runs/<sync-id>` for the latest ten runs.
 - Direct local execution uses SQLite for universe-snapshot and sync-run metadata, while Compose and OCI use PostgreSQL 17. Raw bars and score time series stay in local Parquet snapshots.
 - Snapshot activation is an atomic pointer replacement. Interrupted runs are marked failed at startup and their completed download checkpoints are reusable.
-- Historical replay pins its input snapshot with a lease, caches annual score partitions, reuses one prepared market matrix for actual/no-cost simulations, and emits reconciled daily, review, and trade-episode ledgers.
+- Strategy experiments pin their input snapshot with a lease, cache fixed annual Trend Feature partitions, project strategy-specific scores, and emit full, independent-validation, walk-forward, stress, daily, review, and trade-episode results. Sweep work is serialized with single-run work in the same Celery queue.
 - Forward processing runs after successful activation in a separate failure boundary. Its failure cannot roll back the market-data pointer, and retrying one data version cannot duplicate reviews, orders, trades, or valuations.
 - Toss Securities Open API is a dormant local-only adapter. A manual admin check verifies OAuth and representative KR/US stock metadata, but no startup, sync, scoring, replay, or forward path calls it.
 
@@ -59,7 +59,7 @@ flowchart LR
 - `quant-core` owns scoring, deterministic explanations, synthetic data, portfolio rules, and backtesting. It does not import FastAPI or SQLAlchemy.
 - FastAPI owns public contracts, request validation, rate limiting, job metadata, and artifact links.
 - PostgreSQL stores metadata and compact result summaries. Full result, trade, and time-series files are stored as JSON, CSV, HTML, and Parquet artifacts.
-- Candidate snapshots keep score source rows in local Parquet and compact `BASELINE/ENTERED/RETAINED/EXITED` events in SQL. Forward cash, positions, reviews, orders, trades, and valuations use separate append-oriented ledger tables.
+- Candidate snapshots keep score source rows in local Parquet and compact `BASELINE/ENTERED/RETAINED/EXITED` events in SQL. Forward cash, positions, reviews, orders, trades, and valuations use separate append-oriented ledger tables with one baseline and three experimental active slots.
 - Next.js renders the Korean operational interface. The Pydantic OpenAPI document generates its TypeScript contract.
 
 ## Database Test Matrix
@@ -85,6 +85,13 @@ Every result records:
 - `real-replay-v1.1.0`
 - `market-event-v1.1.0`
 - `replay-analysis-v1.0.0`
+- `replay-strategy-v2.0.0`
+- `trend-score-v2.0.0` strategy projection
+- `portfolio-v2.0.0`
+- `real-replay-v2.0.0`
+- `market-event-v2.0.0`
+- `replay-analysis-v2.0.0`
+- `replay-feature-cache-v2.0.0`
 - score configuration hash
 - portfolio configuration hash
 - date range and transaction-cost assumptions

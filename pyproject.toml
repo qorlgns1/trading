@@ -31,7 +31,7 @@ mypy_path = ["packages/quant-core/src", "apps/api/src"]
 exclude = ["apps/api/alembic"]
 
 [[tool.mypy.overrides]]
-module = ["celery.*", "exchange_calendars.*", "oci.*", "yfinance.*"]
+module = ["celery.*", "exchange_calendars.*", "oci.*", "scipy.*", "yfinance.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -36,7 +36,7 @@ const DEMO_NAVIGATION = [
 const LOCAL_NAVIGATION = [
   ...CORE_NAVIGATION.slice(0, 2),
   { href: "/quality", label: "데이터 품질", icon: ShieldCheck },
-  { href: "/replays", label: "과거 시뮬레이션", icon: ChartLine },
+  { href: "/replays", label: "전략 실험실", icon: ChartLine },
   { href: "/candidate-history", label: "후보 이력", icon: History },
   { href: "/forward", label: "포워드 포트폴리오", icon: WalletCards },
   CORE_NAVIGATION[2],
@@ -122,7 +122,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {open && (
         <button
           className="sidebar-backdrop"
-          aria-label="메뉴 닫기"
+          aria-hidden="true"
+          tabIndex={-1}
           onClick={() => setOpen(false)}
         />
       )}

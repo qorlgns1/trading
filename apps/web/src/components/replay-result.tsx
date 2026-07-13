@@ -33,13 +33,16 @@ const STAGE_LABELS: Record<string, string> = {
   RUNNING: "준비",
   SCORE_PARTITIONS: "연도별 추세 점수 계산",
   WEEKLY_SIGNALS: "주간 후보 구성",
+  BUILD_SIGNALS: "전략 조건별 후보 구성",
   LOAD_MARKET_EVENTS: "가격·배당·분할 불러오기",
   PREPARE_MARKET: "시장 데이터 행렬 준비",
   SIMULATE_ACTUAL: "실제 비용 포트폴리오 재생",
   SIMULATE_NO_COST: "비용 없는 비교 포트폴리오 재생",
   ANALYZE: "성과 원인과 무결성 분석",
+  VALIDATE: "독립 검증·워크포워드·스트레스 검사",
   SUCCEEDED: "완료",
   FAILED: "실패",
+  CANCELLED: "사용자 취소",
 };
 
 const METRICS = [
