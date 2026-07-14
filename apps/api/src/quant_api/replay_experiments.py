@@ -517,6 +517,124 @@ def _prepared_with_signals(base: Any, signals: pl.DataFrame) -> Any:
     )
 
 
+def _sweep_result(
+    *,
+    experiment_id: str,
+    axes: list[dict[str, Any]],
+    trial_count: int,
+    rows: list[dict[str, Any]],
+    invalid_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    pareto = _pareto_rows(rows)
+    train_sorted = sorted(rows, key=lambda item: item["training"]["cagr"], reverse=True)
+    validation_sorted = sorted(rows, key=lambda item: item["validation"]["cagr"], reverse=True)
+    validation_rank = {row["index"]: rank for rank, row in enumerate(validation_sorted, 1)}
+    top_count = max(1, math.ceil(len(rows) * 0.10))
+    train_top = {row["index"] for row in train_sorted[:top_count]}
+    validation_top = {row["index"] for row in validation_sorted[:top_count]}
+    correlation = spearmanr(
+        [row["training"]["cagr"] for row in rows],
+        [row["validation"]["cagr"] for row in rows],
+    ).statistic
+    boundary_axes: list[str] = []
+    for axis in axes:
+        values = axis["values"]
+        numeric_values = [value for value in values if isinstance(value, int | float)]
+        if len(numeric_values) != len(values):
+            continue
+        lower, upper = min(numeric_values), max(numeric_values)
+        if any(_get_nested(row["strategy"], str(axis["path"])) in {lower, upper} for row in pareto):
+            boundary_axes.append(str(axis["path"]))
+    trade_counts = [int(row["trade_count"]) for row in rows]
+    concentrations = [float(row["winner_concentration"]["top_3_profit_ratio"]) for row in rows]
+    overlap = len(train_top & validation_top)
+    warnings: list[str] = []
+    if invalid_rows:
+        warnings.append(
+            f"{len(invalid_rows)}개 조합은 진입 가능한 후보가 없어 비교에서 제외됐습니다."
+        )
+    if len(rows) >= 20 and abs(float(correlation)) < 0.3:
+        warnings.append("학습·검증 순위 상관이 낮아 조건 선택이 불안정할 수 있습니다.")
+    if overlap / top_count < 0.3:
+        warnings.append("학습 상위 10% 조합이 검증 상위권에서 거의 재현되지 않았습니다.")
+    if boundary_axes:
+        warnings.append("Pareto 후보가 시험 범위 경계에 있어 범위를 넓힌 재검증이 필요합니다.")
+    if max(concentrations, default=0.0) >= 0.5:
+        warnings.append("일부 조합은 상위 3개 거래에 이익이 크게 집중되었습니다.")
+    diagnostics = {
+        "trial_count": trial_count,
+        "valid_trial_count": len(rows),
+        "invalid_trial_count": len(invalid_rows),
+        "train_validation_spearman": (
+            round(float(correlation), 4) if math.isfinite(float(correlation)) else 0.0
+        ),
+        "top_decile_overlap": overlap,
+        "top_decile_size": top_count,
+        "top_decile_overlap_rate": round(overlap / top_count, 4),
+        "best_train_validation_rank": validation_rank[train_sorted[0]["index"]],
+        "trade_count": {
+            "minimum": min(trade_counts),
+            "median": float(sorted(trade_counts)[len(trade_counts) // 2]),
+            "maximum": max(trade_counts),
+        },
+        "maximum_top_3_profit_ratio": round(max(concentrations, default=0.0), 4),
+        "pareto_boundary_axes": boundary_axes,
+        "warnings": warnings,
+    }
+    return {
+        "version": SWEEP_VERSION,
+        "experiment_id": experiment_id,
+        "axes": axes,
+        "trial_count": trial_count,
+        "valid_trial_count": len(rows),
+        "pareto": pareto,
+        "diagnostics": diagnostics,
+        "rows": rows,
+        "invalid_rows": invalid_rows,
+    }
+
+
+def _sweep_tabular_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "index": row["index"],
+            "training_cagr": row["training"]["cagr"],
+            "training_mdd": row["training"]["max_drawdown"],
+            "validation_cagr": row["validation"]["cagr"],
+            "validation_mdd": row["validation"]["max_drawdown"],
+            "trade_count": row["trade_count"],
+            "transaction_cost_krw": row["transaction_cost_krw"],
+        }
+        for row in rows
+    ]
+
+
+def _sweep_artifact_payloads(
+    result: dict[str, Any],
+) -> tuple[tuple[str, bytes, str], ...]:
+    fieldnames = [
+        "index",
+        "training_cagr",
+        "training_mdd",
+        "validation_cagr",
+        "validation_mdd",
+        "trade_count",
+        "transaction_cost_krw",
+    ]
+    tabular_rows = _sweep_tabular_rows(result["rows"])
+    csv_output = io.StringIO()
+    writer = csv.DictWriter(csv_output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(tabular_rows)
+    parquet = io.BytesIO()
+    pl.DataFrame(tabular_rows).write_parquet(parquet, compression="zstd")
+    return (
+        ("sweep.json", orjson.dumps(result), "application/json"),
+        ("sweep.csv", csv_output.getvalue().encode("utf-8-sig"), "text/csv"),
+        ("sweep.parquet", parquet.getvalue(), "application/vnd.apache.parquet"),
+    )
+
+
 async def execute_sweep(run_id: str) -> None:
     model = await run_repository.get(run_id)
     if model is None or model.data_version is None:
@@ -712,119 +830,14 @@ async def execute_sweep(run_id: str) -> None:
             del prepared, actual_run
             gc.collect()
             await run_repository.set_progress(run_id, "SWEEP", index + 1, len(variants))
-        pareto = _pareto_rows(rows)
-        train_sorted = sorted(rows, key=lambda item: item["training"]["cagr"], reverse=True)
-        validation_sorted = sorted(rows, key=lambda item: item["validation"]["cagr"], reverse=True)
-        validation_rank = {row["index"]: rank for rank, row in enumerate(validation_sorted, 1)}
-        top_count = max(1, math.ceil(len(rows) * 0.10))
-        train_top = {row["index"] for row in train_sorted[:top_count]}
-        validation_top = {row["index"] for row in validation_sorted[:top_count]}
-        correlation = spearmanr(
-            [row["training"]["cagr"] for row in rows],
-            [row["validation"]["cagr"] for row in rows],
-        ).statistic
-        boundary_axes: list[str] = []
-        for axis in request.axes:
-            numeric_values = [value for value in axis.values if isinstance(value, int | float)]
-            if len(numeric_values) != len(axis.values):
-                continue
-            lower, upper = min(numeric_values), max(numeric_values)
-            if any(_get_nested(row["strategy"], axis.path) in {lower, upper} for row in pareto):
-                boundary_axes.append(axis.path)
-        trade_counts = [int(row["trade_count"]) for row in rows]
-        concentrations = [float(row["winner_concentration"]["top_3_profit_ratio"]) for row in rows]
-        overlap = len(train_top & validation_top)
-        warnings: list[str] = []
-        if invalid_combinations:
-            warnings.append(
-                f"{len(invalid_combinations)}개 조합은 진입 가능한 후보가 없어 "
-                "비교에서 제외됐습니다."
-            )
-        if len(rows) >= 20 and abs(float(correlation)) < 0.3:
-            warnings.append("학습·검증 순위 상관이 낮아 조건 선택이 불안정할 수 있습니다.")
-        if overlap / top_count < 0.3:
-            warnings.append("학습 상위 10% 조합이 검증 상위권에서 거의 재현되지 않았습니다.")
-        if boundary_axes:
-            warnings.append("Pareto 후보가 시험 범위 경계에 있어 범위를 넓힌 재검증이 필요합니다.")
-        if max(concentrations, default=0.0) >= 0.5:
-            warnings.append("일부 조합은 상위 3개 거래에 이익이 크게 집중되었습니다.")
-        diagnostics = {
-            "trial_count": len(variants),
-            "valid_trial_count": len(rows),
-            "invalid_trial_count": len(invalid_combinations),
-            "train_validation_spearman": (
-                round(float(correlation), 4) if math.isfinite(float(correlation)) else 0.0
-            ),
-            "top_decile_overlap": overlap,
-            "top_decile_size": top_count,
-            "top_decile_overlap_rate": round(overlap / top_count, 4),
-            "best_train_validation_rank": validation_rank[train_sorted[0]["index"]],
-            "trade_count": {
-                "minimum": min(trade_counts),
-                "median": float(sorted(trade_counts)[len(trade_counts) // 2]),
-                "maximum": max(trade_counts),
-            },
-            "maximum_top_3_profit_ratio": round(max(concentrations, default=0.0), 4),
-            "pareto_boundary_axes": boundary_axes,
-            "warnings": warnings,
-        }
-        result = {
-            "version": SWEEP_VERSION,
-            "experiment_id": model.request_json["experiment_id"],
-            "axes": model.request_json["axes"],
-            "trial_count": len(variants),
-            "valid_trial_count": len(rows),
-            "pareto": pareto,
-            "diagnostics": diagnostics,
-            "rows": rows,
-            "invalid_rows": invalid_combinations,
-        }
-        csv_output = io.StringIO()
-        writer = csv.DictWriter(
-            csv_output,
-            fieldnames=[
-                "index",
-                "training_cagr",
-                "training_mdd",
-                "validation_cagr",
-                "validation_mdd",
-                "trade_count",
-                "transaction_cost_krw",
-            ],
+        result = _sweep_result(
+            experiment_id=str(model.request_json["experiment_id"]),
+            axes=model.request_json["axes"],
+            trial_count=len(variants),
+            rows=rows,
+            invalid_rows=invalid_combinations,
         )
-        writer.writeheader()
-        writer.writerows(
-            {
-                "index": row["index"],
-                "training_cagr": row["training"]["cagr"],
-                "training_mdd": row["training"]["max_drawdown"],
-                "validation_cagr": row["validation"]["cagr"],
-                "validation_mdd": row["validation"]["max_drawdown"],
-                "trade_count": row["trade_count"],
-                "transaction_cost_krw": row["transaction_cost_krw"],
-            }
-            for row in rows
-        )
-        parquet = io.BytesIO()
-        pl.DataFrame(
-            [
-                {
-                    "index": row["index"],
-                    "training_cagr": row["training"]["cagr"],
-                    "training_mdd": row["training"]["max_drawdown"],
-                    "validation_cagr": row["validation"]["cagr"],
-                    "validation_mdd": row["validation"]["max_drawdown"],
-                    "trade_count": row["trade_count"],
-                    "transaction_cost_krw": row["transaction_cost_krw"],
-                }
-                for row in rows
-            ]
-        ).write_parquet(parquet, compression="zstd")
-        for name, content, content_type in (
-            ("sweep.json", orjson.dumps(result), "application/json"),
-            ("sweep.csv", csv_output.getvalue().encode("utf-8-sig"), "text/csv"),
-            ("sweep.parquet", parquet.getvalue(), "application/vnd.apache.parquet"),
-        ):
+        for name, content, content_type in _sweep_artifact_payloads(result):
             object_key = f"research-runs/{run_id}/{name}"
             size = artifact_store.put(object_key, content, content_type)
             await run_repository.add_artifact(run_id, name, object_key, content_type, size)

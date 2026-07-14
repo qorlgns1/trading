@@ -53,4 +53,5 @@ omit = ["*/quant_api/cli.py", "*/quant_api/worker.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+precision = 2
 fail_under = 80
