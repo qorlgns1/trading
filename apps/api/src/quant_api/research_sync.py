@@ -56,6 +56,7 @@ class ResearchSyncManager:
             settings.research_root,
             minimum_group_assets=settings.research_minimum_group_assets,
         )
+        self._request_lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
         self._scheduler: asyncio.Task[None] | None = None
 
@@ -78,12 +79,13 @@ class ResearchSyncManager:
     async def request(self, trigger: SyncTrigger) -> tuple[ResearchSyncRunModel, bool]:
         if self.settings.app_mode != "local_research":
             raise PermissionError("실데이터 동기화는 local_research 모드에서만 사용할 수 있습니다.")
-        active = await self.repository.active_sync()
-        if active is not None:
-            return active, True
-        run = await self.repository.create_sync(trigger, self.collection_mode())
-        self._launch(run.id)
-        return run, False
+        async with self._request_lock:
+            active = await self.repository.active_sync()
+            if active is not None:
+                return active, True
+            run = await self.repository.create_sync(trigger, self.collection_mode())
+            self._launch(run.id)
+            return run, False
 
     def _launch(self, run_id: str) -> None:
         task = asyncio.create_task(self.run(run_id))
@@ -93,10 +95,13 @@ class ResearchSyncManager:
     async def _launch_if_needed(self, trigger: SyncTrigger) -> None:
         if not self.is_stale():
             return
-        active = await self.repository.active_sync()
-        if active is None:
-            run = await self.repository.create_sync(trigger, self.collection_mode())
-            self._launch(run.id)
+        async with self._request_lock:
+            if not self.is_stale():
+                return
+            active = await self.repository.active_sync()
+            if active is None:
+                run = await self.repository.create_sync(trigger, self.collection_mode())
+                self._launch(run.id)
 
     def collection_mode(self) -> ResearchCollectionMode:
         return determine_collection_mode(self.store.current_manifest())
@@ -223,6 +228,7 @@ class ResearchSyncManager:
             fetcher=YFinanceProvider(self.settings.app_mode),
             history_years=self.settings.research_history_years,
             batch_size=self.settings.research_batch_size,
+            download_workers=self.settings.research_download_workers,
             max_retries=self.settings.research_max_retries,
             minimum_group_assets=self.settings.research_minimum_group_assets,
         )

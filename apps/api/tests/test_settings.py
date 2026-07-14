@@ -22,6 +22,22 @@ def test_empty_optional_research_paths_are_none() -> None:
     assert settings.research_krx_etf_csv is None
 
 
+def test_research_download_defaults_are_bounded() -> None:
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    assert settings.research_batch_size == 40
+    assert settings.research_download_workers == 3
+
+
+@pytest.mark.parametrize("workers", [0, 5])
+def test_research_download_workers_must_stay_between_one_and_four(workers: int) -> None:
+    with pytest.raises(ValidationError):
+        Settings(  # type: ignore[call-arg]
+            _env_file=None,
+            research_download_workers=workers,
+        )
+
+
 def test_krx_credentials_must_be_configured_as_a_pair(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

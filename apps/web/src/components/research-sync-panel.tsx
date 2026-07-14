@@ -16,9 +16,10 @@ import {
   type ResearchSyncAccepted,
 } from "@/lib/api";
 
-const STAGE_LABELS: Record<string, string> = {
+export const STAGE_LABELS: Record<string, string> = {
   CREATED: "준비 중",
   UNIVERSE: "거래소 종목 목록 수집",
+  REFRESH_ACTIONS: "기업행사 전체 이력 보정",
   MATERIALIZE: "가격 스냅샷 정리",
   SCORE: "최신 추세 점수 계산",
   ACTIVATE: "정상 스냅샷 전환",

@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     research_root: Path = Path("data/research")
     research_history_years: int = Field(default=10, ge=1, le=30)
     research_score_lookback_sessions: int = Field(default=400, ge=253, le=1000)
-    research_batch_size: int = Field(default=20, ge=1, le=100)
+    research_batch_size: int = Field(default=40, ge=1, le=100)
+    research_download_workers: int = Field(default=3, ge=1, le=4)
     research_max_retries: int = Field(default=3, ge=1, le=10)
     research_minimum_group_assets: int = Field(default=30, ge=1, le=10_000)
     research_auto_sync: bool = True

@@ -1,4 +1,6 @@
+import logging
 import math
+import threading
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -9,6 +11,30 @@ import yfinance as yf
 from quant_core.enums import DataStatus, PeerGroup
 
 YFINANCE_PROVIDER_VERSION = "yfinance-1.5.1-repair-v1"
+
+
+class _YFinanceRateLimitHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        message = record.getMessage().lower()
+        if (
+            "yfratelimiterror" in message
+            or "rate limit" in message
+            or "too many requests" in message
+            or "http 429" in message
+        ):
+            _YFINANCE_RATE_LIMITED.set()
+
+
+_YFINANCE_RATE_LIMITED = threading.Event()
+_YFINANCE_RATE_LIMIT_HANDLER = _YFinanceRateLimitHandler()
+_YFINANCE_HANDLER_LOCK = threading.Lock()
+
+
+def _ensure_yfinance_rate_limit_handler() -> None:
+    logger = logging.getLogger("yfinance")
+    with _YFINANCE_HANDLER_LOCK:
+        if _YFINANCE_RATE_LIMIT_HANDLER not in logger.handlers:
+            logger.addHandler(_YFINANCE_RATE_LIMIT_HANDLER)
 
 
 @dataclass(frozen=True)
@@ -76,6 +102,17 @@ class YFinanceProvider:
     def __init__(self, app_mode: str) -> None:
         if app_mode != "local_research":
             raise RuntimeError("yfinance 어댑터는 local_research 모드에서만 사용할 수 있습니다.")
+        _ensure_yfinance_rate_limit_handler()
+        self._serial_mode = threading.Event()
+
+    def consume_rate_limit_signal(self) -> bool:
+        detected = _YFINANCE_RATE_LIMITED.is_set()
+        if detected:
+            _YFINANCE_RATE_LIMITED.clear()
+        return detected
+
+    def enable_serial_mode(self) -> None:
+        self._serial_mode.set()
 
     def fetch(self, assets: list[UniverseAsset], start: date, end: date) -> pl.DataFrame:
         if not assets:
@@ -92,7 +129,7 @@ class YFinanceProvider:
             repair=True,
             group_by="ticker",
             progress=False,
-            threads=True,
+            threads=not self._serial_mode.is_set(),
         )
         if raw is None or raw.empty:
             return pl.DataFrame()

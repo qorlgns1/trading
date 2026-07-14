@@ -4,8 +4,13 @@ import {
   getResearchSyncButtonLabel,
   getResearchSyncPresentation,
 } from "./research-sync-presentation";
+import { STAGE_LABELS } from "./research-sync-panel";
 
 describe("research sync presentation", () => {
+  it("labels the corporate-action full-history refresh stage", () => {
+    expect(STAGE_LABELS.REFRESH_ACTIONS).toBe("기업행사 전체 이력 보정");
+  });
+
   it("describes an initial full collection when no active snapshot exists", () => {
     const presentation = getResearchSyncPresentation("FULL", false);
 

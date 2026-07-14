@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from pathlib import Path
 
@@ -50,12 +51,26 @@ def test_yfinance_enables_price_repair_and_maps_repaired_rows(monkeypatch) -> No
         benchmark_ticker=DEFAULT_BENCHMARK[PeerGroup.US_STOCK],
     )
 
-    frame = YFinanceProvider("local_research").fetch(
-        [asset], date(2026, 7, 9), date(2026, 7, 10)
-    )
+    provider = YFinanceProvider("local_research")
+    frame = provider.fetch([asset], date(2026, 7, 9), date(2026, 7, 10))
 
     assert received["repair"] is True
+    assert received["threads"] is True
     assert frame.get_column("provider_repaired").to_list() == [True]
+
+    provider.enable_serial_mode()
+    provider.fetch([asset], date(2026, 7, 9), date(2026, 7, 10))
+    assert received["threads"] is False
+
+
+def test_yfinance_rate_limit_logs_are_exposed_to_the_batch_scheduler() -> None:
+    provider = YFinanceProvider("local_research")
+    provider.consume_rate_limit_signal()
+
+    logging.getLogger("yfinance").error("YFRateLimitError: Too Many Requests")
+
+    assert provider.consume_rate_limit_signal()
+    assert not provider.consume_rate_limit_signal()
 
 
 def test_versioned_universe_csv_is_parsed(tmp_path: Path) -> None:

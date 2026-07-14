@@ -9,6 +9,8 @@ APP_MODE=local_research
 ARTIFACT_BACKEND=local
 RESEARCH_ROOT=data/research
 RESEARCH_HISTORY_YEARS=10
+RESEARCH_BATCH_SIZE=40
+RESEARCH_DOWNLOAD_WORKERS=3
 RESEARCH_AUTO_SYNC=true
 KRX_ID=your-krx-login-id
 KRX_PW=your-krx-login-password
@@ -56,9 +58,9 @@ make web
 
 `make api` applies the current Alembic migration before starting FastAPI. Open `http://127.0.0.1:3000`. Startup requests a sync when the current snapshot is missing or stale. The same operation can be retried from the dashboard. A repeated request reuses the active run instead of starting a second concurrent collection.
 
-`price-pipeline-v2.0.0` enables provider price repair and adds row-level repair provenance. The first sync after upgrading from the previous pipeline intentionally downloads the full ten-year history once; subsequent runs return to incremental collection.
+`price-pipeline-v2.0.0` enables provider price repair and adds row-level repair provenance. The first sync after upgrading from the previous pipeline intentionally downloads the full ten-year history once; subsequent runs return to incremental collection. Incremental collection compares the latest 45 days of dividends and splits with the active snapshot and rebuilds full history only for added, changed, or removed actions. Price downloads default to 40 assets per batch and three concurrent workers; `RESEARCH_DOWNLOAD_WORKERS` is restricted to `1..4`, and a rate-limit signal switches the remaining batches to one worker.
 
-The sync stages are `UNIVERSE -> DOWNLOAD -> MATERIALIZE -> VALIDATE_RAW -> REPAIR -> SCORE -> VALIDATE_SCORE -> ACTIVATE`. Open **데이터 품질** in local mode to inspect coverage, checks, quarantined assets, repaired assets, and CSV issue exports. A failed quality gate never replaces the last normal `current.json` pointer.
+The sync stages are `UNIVERSE -> DOWNLOAD -> REFRESH_ACTIONS -> MATERIALIZE -> VALIDATE_RAW -> REPAIR -> SCORE -> VALIDATE_SCORE -> ACTIVATE`. Open **데이터 품질** in local mode to inspect coverage, checks, quarantined assets, repaired assets, and CSV issue exports. A failed quality gate never replaces the last normal `current.json` pointer.
 
 ## Storage
 
