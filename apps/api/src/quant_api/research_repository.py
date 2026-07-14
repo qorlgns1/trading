@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from quant_core.enums import RunStatus, SyncTrigger
+from quant_core.enums import ResearchCollectionMode, RunStatus, SyncTrigger
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -16,12 +16,17 @@ class ResearchRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession] = SessionFactory) -> None:
         self.session_factory = session_factory
 
-    async def create_sync(self, trigger: SyncTrigger) -> ResearchSyncRunModel:
+    async def create_sync(
+        self,
+        trigger: SyncTrigger,
+        collection_mode: ResearchCollectionMode | None = None,
+    ) -> ResearchSyncRunModel:
         run = ResearchSyncRunModel(
             id=str(uuid.uuid4()),
             trigger=trigger.value,
             status=RunStatus.QUEUED.value,
             stage="QUEUED",
+            collection_mode=collection_mode.value if collection_mode is not None else None,
             failed_json=[],
         )
         async with self.session_factory() as session:

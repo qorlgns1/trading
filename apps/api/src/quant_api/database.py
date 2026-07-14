@@ -128,6 +128,7 @@ class ResearchSyncRunModel(Base):
     trigger: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), index=True)
     stage: Mapped[str] = mapped_column(String(48))
+    collection_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     completed_batches: Mapped[int] = mapped_column(Integer, default=0)
     total_batches: Mapped[int] = mapped_column(Integer, default=0)
     universe_version: Mapped[str | None] = mapped_column(String(96), nullable=True)

@@ -13,7 +13,7 @@ from quant_api.forward_repository import ForwardLedgerRepository
 from quant_api.provider_admin import ProviderConnectionRepository
 from quant_api.research_repository import ResearchRepository
 from quant_api.schemas import ProviderConnectionState, ProviderId
-from quant_core.enums import ForwardAccountType, RunStatus, SyncTrigger
+from quant_core.enums import ForwardAccountType, ResearchCollectionMode, RunStatus, SyncTrigger
 from sqlalchemy import inspect, select, text
 
 pytestmark = pytest.mark.integration
@@ -73,7 +73,7 @@ async def test_alembic_schema_is_current_on_postgresql() -> None:
 
     assert engine.dialect.name == "postgresql"
     assert tables >= APPLICATION_TABLES
-    assert revision == "20260712_0005"
+    assert revision == "20260714_0006"
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,10 @@ async def test_backtest_metadata_round_trips_through_postgresql() -> None:
 @pytest.mark.asyncio
 async def test_research_state_and_active_snapshot_are_transactional() -> None:
     repository = ResearchRepository()
-    sync = await repository.create_sync(SyncTrigger.MANUAL)
+    sync = await repository.create_sync(
+        SyncTrigger.MANUAL,
+        ResearchCollectionMode.INCREMENTAL,
+    )
     await repository.update_sync(
         sync.id,
         status=RunStatus.RUNNING.value,
@@ -142,6 +145,7 @@ async def test_research_state_and_active_snapshot_are_transactional() -> None:
         )
 
     assert stored_sync is not None
+    assert stored_sync.collection_mode == ResearchCollectionMode.INCREMENTAL.value
     assert stored_sync.completed_batches == 3
     assert stored_sync.failed_json[0]["ticker"] == "MISSING"
     assert len(stored_sync.error_message or "") == 2_000

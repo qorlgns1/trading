@@ -7,6 +7,10 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
+  getResearchSyncButtonLabel,
+  getResearchSyncPresentation,
+} from "@/components/research-sync-presentation";
+import {
   apiFetch,
   type ResearchStatus,
   type ResearchSyncAccepted,
@@ -15,7 +19,6 @@ import {
 const STAGE_LABELS: Record<string, string> = {
   CREATED: "준비 중",
   UNIVERSE: "거래소 종목 목록 수집",
-  DOWNLOAD: "10년 가격 데이터 수집",
   MATERIALIZE: "가격 스냅샷 정리",
   SCORE: "최신 추세 점수 계산",
   ACTIVATE: "정상 스냅샷 전환",
@@ -67,6 +70,15 @@ export function ResearchSyncPanel({ initial }: { initial: ResearchStatus }) {
 
   const sync = status.last_sync;
   const progress = sync?.progress_percent ?? 0;
+  const presentation = getResearchSyncPresentation(
+    sync?.collection_mode,
+    Boolean(status.data_version),
+  );
+  const buttonLabel = getResearchSyncButtonLabel({
+    active,
+    activeButtonLabel: presentation.activeButtonLabel,
+    failed: sync?.status === "FAILED",
+  });
 
   return (
     <section className="section-panel research-sync-panel">
@@ -76,22 +88,34 @@ export function ResearchSyncPanel({ initial }: { initial: ResearchStatus }) {
           <h2>{status.snapshot_state === "MISSING" ? "첫 실데이터 준비" : "시장 데이터 갱신"}</h2>
           <p>원본 가격은 이 컴퓨터의 로컬 연구 저장소에만 보관됩니다.</p>
         </div>
-        {sync && <StatusBadge state={sync.status} />}
+        {sync && (
+          <StatusBadge
+            state={sync.status}
+            label={sync.status === "RUNNING" ? "갱신 중" : undefined}
+          />
+        )}
       </div>
 
       {sync && (
         <div className="sync-progress-block">
           <div className="sync-progress-label">
-            <strong>{STAGE_LABELS[sync.stage] ?? sync.stage}</strong>
+            <strong>
+              {sync.stage === "DOWNLOAD"
+                ? presentation.downloadStageLabel
+                : (STAGE_LABELS[sync.stage] ?? sync.stage)}
+            </strong>
             <span>{progress.toFixed(0)}%</span>
           </div>
-          <div className="progress-track" aria-label={`수집 진행률 ${progress.toFixed(0)}%`}>
+          <div
+            className="progress-track"
+            aria-label={`이번 작업 진행률 ${progress.toFixed(0)}%`}
+          >
             <div className="progress-value" style={{ width: `${progress}%` }} />
           </div>
           <span className="sync-batch-count">
             {sync.total_batches > 0
-              ? `${sync.completed_batches.toLocaleString()} / ${sync.total_batches.toLocaleString()} 배치`
-              : "종목 목록을 준비하고 있습니다."}
+              ? `이번 작업 ${sync.completed_batches.toLocaleString()} / ${sync.total_batches.toLocaleString()} 배치`
+              : "이번 작업의 종목 목록을 준비하고 있습니다."}
           </span>
         </div>
       )}
@@ -111,9 +135,9 @@ export function ResearchSyncPanel({ initial }: { initial: ResearchStatus }) {
       <div className="sync-actions">
         <Button type="button" onClick={startSync} disabled={requesting || active}>
           <RefreshCw size={16} className={requesting || active ? "spin" : ""} />
-          {active ? "수집 중" : sync?.status === "FAILED" ? "이어받아 다시 시도" : "실데이터 수집 시작"}
+          {buttonLabel}
         </Button>
-        <span>최초 수집은 시장 전체 10년 일봉을 내려받아 시간이 걸릴 수 있습니다.</span>
+        <span>{presentation.description}</span>
       </div>
     </section>
   );

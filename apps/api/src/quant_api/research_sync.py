@@ -9,6 +9,7 @@ from quant_core.calendar import latest_completed_trading_date
 from quant_core.enums import (
     DataSource,
     PeerGroup,
+    ResearchCollectionMode,
     RunStatus,
     SnapshotState,
     SyncTrigger,
@@ -21,6 +22,7 @@ from quant_api.research_pipeline import (
     PRICE_PIPELINE_VERSION,
     PriceBuildResult,
     PriceSnapshotBuilder,
+    determine_collection_mode,
 )
 from quant_api.research_quality import ResearchQualityValidator
 from quant_api.research_repository import ResearchRepository
@@ -79,7 +81,7 @@ class ResearchSyncManager:
         active = await self.repository.active_sync()
         if active is not None:
             return active, True
-        run = await self.repository.create_sync(trigger)
+        run = await self.repository.create_sync(trigger, self.collection_mode())
         self._launch(run.id)
         return run, False
 
@@ -93,8 +95,11 @@ class ResearchSyncManager:
             return
         active = await self.repository.active_sync()
         if active is None:
-            run = await self.repository.create_sync(trigger)
+            run = await self.repository.create_sync(trigger, self.collection_mode())
             self._launch(run.id)
+
+    def collection_mode(self) -> ResearchCollectionMode:
+        return determine_collection_mode(self.store.current_manifest())
 
     async def _scheduler_loop(self) -> None:
         while True:
@@ -332,6 +337,11 @@ class ResearchSyncManager:
             trigger=SyncTrigger(model.trigger),
             status=RunStatus(model.status),
             stage=model.stage,
+            collection_mode=(
+                ResearchCollectionMode(model.collection_mode)
+                if model.collection_mode is not None
+                else None
+            ),
             completed_batches=model.completed_batches,
             total_batches=total,
             progress_percent=round(progress, 1),

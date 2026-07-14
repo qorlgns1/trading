@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 import polars as pl
-from quant_core.enums import DataStatus, PeerGroup
+from quant_core.enums import DataStatus, PeerGroup, ResearchCollectionMode
 from quant_core.providers import YFINANCE_PROVIDER_VERSION, UniverseAsset
 
 from quant_api.research_store import ResearchSnapshotStore, file_sha256
@@ -17,6 +17,20 @@ from quant_api.universe import UniverseSnapshot
 
 ProgressCallback = Callable[[str, int, int, list[dict[str, Any]]], None]
 PRICE_PIPELINE_VERSION = "price-pipeline-v2.0.0"
+
+
+def determine_collection_mode(
+    current: dict[str, Any] | None,
+    *,
+    force_full: bool = False,
+) -> ResearchCollectionMode:
+    if (
+        force_full
+        or current is None
+        or current.get("price_pipeline_version") != PRICE_PIPELINE_VERSION
+    ):
+        return ResearchCollectionMode.FULL
+    return ResearchCollectionMode.INCREMENTAL
 
 
 class PriceFetcher(Protocol):
@@ -85,11 +99,8 @@ class PriceSnapshotBuilder:
         now = self.clock()
         end = now.date() + timedelta(days=1)
         current = self.store.current_manifest()
-        initial = (
-            force_full
-            or current is None
-            or current.get("price_pipeline_version") != PRICE_PIPELINE_VERSION
-        )
+        collection_mode = determine_collection_mode(current, force_full=force_full)
+        initial = collection_mode is ResearchCollectionMode.FULL
         full_start = years_ago(end, self.history_years)
         incremental_start = self._incremental_start(current, end)
         staging = self.store.create_staging(run_id)
@@ -191,7 +202,7 @@ class PriceSnapshotBuilder:
             "created_at": now.isoformat(),
             "history_start": full_start.isoformat(),
             "requested_end": end.isoformat(),
-            "mode": "FULL" if initial else "INCREMENTAL",
+            "mode": collection_mode.value,
             "coverage": coverage,
             "failed_tickers": failed,
             "corporate_action_refetches": sorted(refreshed_for_actions),

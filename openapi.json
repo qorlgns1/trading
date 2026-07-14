@@ -3443,6 +3443,14 @@
         "title": "ReplayValidationConfig",
         "type": "object"
       },
+      "ResearchCollectionMode": {
+        "enum": [
+          "FULL",
+          "INCREMENTAL"
+        ],
+        "title": "ResearchCollectionMode",
+        "type": "string"
+      },
       "ResearchStatusResponse": {
         "properties": {
           "app_mode": {
@@ -3544,6 +3552,16 @@
       },
       "ResearchSyncResponse": {
         "properties": {
+          "collection_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchCollectionMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "completed_batches": {
             "title": "Completed Batches",
             "type": "integer"

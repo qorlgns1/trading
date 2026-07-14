@@ -167,6 +167,11 @@ class SyncTrigger(StrEnum):
     MANUAL = "MANUAL"
 
 
+class ResearchCollectionMode(StrEnum):
+    FULL = "FULL"
+    INCREMENTAL = "INCREMENTAL"
+
+
 class Sleeve(StrEnum):
     US_STOCK = "US_STOCK"
     KR_STOCK = "KR_STOCK"

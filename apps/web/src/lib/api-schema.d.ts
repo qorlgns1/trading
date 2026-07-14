@@ -2025,6 +2025,11 @@ export interface components {
              */
             walk_forward_train_years: number;
         };
+        /**
+         * ResearchCollectionMode
+         * @enum {string}
+         */
+        ResearchCollectionMode: "FULL" | "INCREMENTAL";
         /** ResearchStatusResponse */
         ResearchStatusResponse: {
             /** App Mode */
@@ -2056,6 +2061,7 @@ export interface components {
         };
         /** ResearchSyncResponse */
         ResearchSyncResponse: {
+            collection_mode?: components["schemas"]["ResearchCollectionMode"] | null;
             /** Completed Batches */
             completed_batches: number;
             /**

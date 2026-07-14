@@ -40,7 +40,13 @@ const LABELS: Record<string, string> = {
   CANCELLED: "취소",
 };
 
-export function StatusBadge({ state }: { state: string }) {
+export function StatusBadge({
+  state,
+  label,
+}: {
+  state: string;
+  label?: string;
+}) {
   return (
     <span
       className={cn(
@@ -82,7 +88,7 @@ export function StatusBadge({ state }: { state: string }) {
         ["ARCHIVED", "CANCELLED"].includes(state) && "status-muted",
       )}
     >
-      {LABELS[state] ?? state}
+      {label ?? LABELS[state] ?? state}
     </span>
   );
 }

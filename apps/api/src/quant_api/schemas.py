@@ -19,6 +19,7 @@ from quant_core.enums import (
     QualitySeverity,
     QualityStatus,
     ReplacementPolicy,
+    ResearchCollectionMode,
     ReviewFrequency,
     RunStatus,
     Sleeve,
@@ -736,6 +737,7 @@ class ResearchSyncResponse(BaseModel):
     trigger: SyncTrigger
     status: RunStatus
     stage: str
+    collection_mode: ResearchCollectionMode | None = None
     completed_batches: int
     total_batches: int
     progress_percent: float
