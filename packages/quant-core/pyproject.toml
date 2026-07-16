@@ -8,7 +8,7 @@ dependencies = [
   "exchange-calendars>=4.11,<5",
   "numpy>=2.2,<3",
   "polars==1.42.1",
-  "pyarrow>=19,<23",
+  "pyarrow>=25.0.0,<26",
   "scipy==1.18.0",
   "yfinance==1.5.1",
 ]
