@@ -2168,7 +2168,7 @@ requires-dist = [
     { name = "quant-core", editable = "packages/quant-core" },
     { name = "redis", specifier = ">=6.4,<7" },
     { name = "sqlalchemy", specifier = ">=2.0.43,<3" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.35,<1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.51.0,<1" },
 ]
 
 [[package]]
