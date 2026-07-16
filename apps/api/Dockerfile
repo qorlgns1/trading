@@ -12,11 +12,11 @@ COPY --from=uv /uv /uvx /bin/
 COPY pyproject.toml uv.lock ./
 COPY packages/quant-core/pyproject.toml packages/quant-core/pyproject.toml
 COPY apps/api/pyproject.toml apps/api/pyproject.toml
-RUN uv sync --frozen --no-dev --package quant-api --no-install-workspace
+RUN uv sync --locked --no-dev --package quant-api --no-install-workspace
 
 COPY packages/quant-core packages/quant-core
 COPY apps/api apps/api
-RUN uv sync --frozen --no-dev --package quant-api
+RUN uv sync --locked --no-dev --package quant-api
 
 RUN useradd --create-home --uid 10001 app && mkdir -p /app/artifacts /app/data \
     && chown -R app:app /app/artifacts /app/data

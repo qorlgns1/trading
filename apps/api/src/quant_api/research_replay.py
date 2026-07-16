@@ -262,7 +262,7 @@ def _completed_schedule(
             raise RuntimeError("완결된 일별 신호가 없습니다.")
         return pl.DataFrame(daily_rows).sort(["review_date", "peer_group"])
 
-    market_groups = {
+    market_groups: dict[str, list[PeerGroup]] = {
         "US": [
             group
             for group in (PeerGroup.US_STOCK, PeerGroup.US_EQUITY_ETF)
