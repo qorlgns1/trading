@@ -1,3 +1,4 @@
+import asyncio
 import math
 import os
 import uuid
@@ -210,7 +211,9 @@ class ForwardService:
 
         previous = await self.repository.latest_candidate_snapshot()
         previous_rows: dict[str, dict[str, Any]] = {}
-        if previous is not None and Path(previous.artifact_path).is_file():
+        if previous is not None and await asyncio.to_thread(
+            Path(previous.artifact_path).is_file
+        ):
             previous_rows = {
                 str(row["asset_id"]): row
                 for row in pl.read_parquet(previous.artifact_path).to_dicts()

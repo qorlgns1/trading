@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import date, datetime
 from pathlib import Path
@@ -375,7 +376,7 @@ SessionFactory = async_sessionmaker(engine, expire_on_commit=False)
 
 async def create_schema() -> None:
     if settings.database_url.startswith("sqlite"):
-        Path("data").mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(Path("data").mkdir, parents=True, exist_ok=True)
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
 

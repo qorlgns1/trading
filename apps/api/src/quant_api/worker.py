@@ -24,7 +24,7 @@ celery_app.conf.update(
 )
 
 
-@celery_app.task(name="quant_api.run_backtest")  # type: ignore[misc]
+@celery_app.task(name="quant_api.run_backtest")  # type: ignore[untyped-decorator]
 def run_backtest_task(run_id: str, rate_key: str) -> None:
     from quant_api.rate_limit import create_rate_limiter
 
@@ -32,11 +32,11 @@ def run_backtest_task(run_id: str, rate_key: str) -> None:
     asyncio.run(execute_backtest(run_id, limiter=limiter, rate_key=rate_key))
 
 
-@celery_app.task(name="quant_api.run_replay")  # type: ignore[misc]
+@celery_app.task(name="quant_api.run_replay")  # type: ignore[untyped-decorator]
 def run_replay_task(run_id: str) -> None:
     asyncio.run(execute_replay(run_id))
 
 
-@celery_app.task(name="quant_api.run_replay_sweep")  # type: ignore[misc]
+@celery_app.task(name="quant_api.run_replay_sweep")  # type: ignore[untyped-decorator]
 def run_sweep_task(run_id: str) -> None:
     asyncio.run(execute_sweep(run_id))
