@@ -128,17 +128,37 @@ jobs:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
+      - name: Validate OCIR configuration
+        if: ${{ vars.OCI_DEPLOY_ENABLED == 'true' }}
+        shell: bash
+        env:
+          OCIR_REGISTRY: ${{ vars.OCIR_REGISTRY }}
+          OCI_NAMESPACE: ${{ vars.OCI_NAMESPACE }}
+          OCIR_USERNAME: ${{ secrets.OCIR_USERNAME }}
+          OCIR_AUTH_TOKEN: ${{ secrets.OCIR_AUTH_TOKEN }}
+        run: |
+          missing=()
+          for name in OCIR_REGISTRY OCI_NAMESPACE OCIR_USERNAME OCIR_AUTH_TOKEN; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} )); then
+            printf 'Missing required OCI deployment settings: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+      - name: Log in to OCIR
+        if: ${{ vars.OCI_DEPLOY_ENABLED == 'true' }}
+        uses: docker/login-action@v4
         with:
           registry: ${{ vars.OCIR_REGISTRY }}
           username: ${{ secrets.OCIR_USERNAME }}
           password: ${{ secrets.OCIR_AUTH_TOKEN }}
-      - uses: docker/build-push-action@v7
+      - name: Build image
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ vars.OCIR_REGISTRY }}/${{ vars.OCI_NAMESPACE }}/quant-trend-lab/${{ matrix.image.name }}:${{ github.sha }}
+          push: ${{ vars.OCI_DEPLOY_ENABLED == 'true' }}
+          tags: ${{ vars.OCI_DEPLOY_ENABLED == 'true' && format('{0}/{1}/quant-trend-lab/{2}:{3}', vars.OCIR_REGISTRY, vars.OCI_NAMESPACE, matrix.image.name, github.sha) || format('quant-trend-lab/{0}:{1}', matrix.image.name, github.sha) }}
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}

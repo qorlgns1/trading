@@ -11,7 +11,9 @@ permissions:
 jobs:
   deploy:
     if: >-
+      vars.OCI_DEPLOY_ENABLED == 'true' &&
       github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: [self-hosted, linux, arm64, quant-trend-prod]
     environment: production
