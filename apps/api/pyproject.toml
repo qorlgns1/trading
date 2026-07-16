@@ -11,7 +11,7 @@ dependencies = [
   "fastapi==0.139.0",
   "greenlet>=3.2,<4",
   "httpx>=0.28,<1",
-  "oci>=2.160,<3",
+  "oci>=2.182.0,<3",
   "orjson>=3.11,<4",
   "pydantic-settings>=2.10,<3",
   "pykrx==1.2.8",
