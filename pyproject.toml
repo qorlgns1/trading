@@ -39,7 +39,7 @@ addopts = "-ra --strict-markers --strict-config"
 testpaths = ["packages/quant-core/tests", "apps/api/tests"]
 asyncio_mode = "auto"
 markers = [
-  "integration: requires the disposable Docker Compose PostgreSQL service",
+  "integration: requires disposable Docker Compose PostgreSQL and Valkey services",
 ]
 filterwarnings = [
   "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",

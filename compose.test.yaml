@@ -17,3 +17,19 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+
+  valkey-test:
+    image: valkey/valkey:8-alpine
+    restart: "no"
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - target: 6379
+        host_ip: 127.0.0.1
+        protocol: tcp
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
