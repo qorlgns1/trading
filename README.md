@@ -68,7 +68,7 @@ make build
 pnpm --filter web test:e2e
 ```
 
-`make test` uses SQLite for fast isolated unit and API tests. `make test-integration` starts a disposable PostgreSQL 17 container on an automatically assigned local port, applies Alembic migrations, checks model/schema drift, runs repository integration tests, and removes the container and temporary database afterward.
+`make test` uses SQLite for fast isolated unit and API tests. `make test-integration` starts disposable PostgreSQL 17 and Valkey 8 containers on automatically assigned loopback ports, applies Alembic migrations, checks model/schema drift, verifies Redis-backed rate limiting and Celery transport, and removes both tmpfs-backed services afterward.
 
 CI runs both test layers independently, regenerates OpenAPI and TypeScript contracts, and fails when committed contracts drift. Main-branch images are built for both `linux/amd64` and `linux/arm64` and pushed to private OCIR repositories.
 

@@ -67,11 +67,11 @@ flowchart LR
 | Command | Database | Purpose |
 | --- | --- | --- |
 | `make test` | Temporary SQLite file | Fast unit, property, and API contract tests |
-| `make test-integration` | Disposable PostgreSQL 17 container | Alembic migration, schema drift, JSON round-trip, and transactional repository tests |
+| `make test-integration` | Disposable PostgreSQL 17 and Valkey 8 containers | Alembic/schema checks, repository transactions, Redis rate limits, and Celery broker/backend round-trips |
 | `docker compose up` | Persistent PostgreSQL 17 volume | Local full-stack behavior |
 | OCI deployment | Persistent PostgreSQL 17 volume | Production metadata and job state |
 
-The integration Compose file publishes PostgreSQL on a Docker-assigned loopback port, accepts only a local database whose name ends in `_test`, and tears down its tmpfs-backed data after every run. This prevents port collisions and guards against running destructive cleanup statements on a production database.
+The integration Compose file publishes PostgreSQL and Valkey on Docker-assigned loopback ports and tears down their tmpfs-backed data after every run. PostgreSQL accepts only a local database whose name ends in `_test`. Valkey rejects URL overrides and requires a guard derived from the disposable container ID before any database cleanup, preventing destructive integration tests from targeting persistent services.
 
 ## Reproducibility Contract
 

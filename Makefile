@@ -50,15 +50,22 @@ test-integration:
 	cleanup() { compose_test down -v --remove-orphans >/dev/null 2>&1 || true; }; \
 	trap cleanup EXIT INT TERM; \
 	compose_test down -v --remove-orphans >/dev/null 2>&1 || true; \
-	compose_test up -d --wait postgres-test; \
+	compose_test up -d --wait postgres-test valkey-test; \
 	postgres_address="$$(compose_test port postgres-test 5432)"; \
 	postgres_port="$${postgres_address##*:}"; \
+	valkey_address="$$(compose_test port valkey-test 6379)"; \
+	valkey_port="$${valkey_address##*:}"; \
+	valkey_guard="$$(compose_test ps -q valkey-test)"; \
+	test -n "$$valkey_guard"; \
+	compose_test exec -T valkey-test valkey-cli SET quant-trend-lab:test-guard "$$valkey_guard" >/dev/null; \
 	test_database_url="postgresql+asyncpg://quant_test:quant_test_password@127.0.0.1:$${postgres_port}/quant_test"; \
+	test_valkey_url="redis://127.0.0.1:$${valkey_port}/0"; \
 	DATABASE_URL="$$test_database_url" APP_ENV=test AUTO_CREATE_SCHEMA=false \
 		$(ALEMBIC) -c apps/api/alembic.ini upgrade head; \
 	DATABASE_URL="$$test_database_url" APP_ENV=test AUTO_CREATE_SCHEMA=false \
 		$(ALEMBIC) -c apps/api/alembic.ini check; \
-	TEST_DATABASE_URL="$$test_database_url" \
+	TEST_DATABASE_URL="$$test_database_url" TEST_VALKEY_URL="$$test_valkey_url" \
+		TEST_VALKEY_GUARD="$$valkey_guard" \
 		$(PYTEST) -m integration apps/api/integration_tests
 
 lint:
