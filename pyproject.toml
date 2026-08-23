@@ -6,12 +6,12 @@ quant-core = { workspace = true }
 
 [dependency-groups]
 dev = [
-  "hypothesis==6.156.6",
-  "mypy==2.3.0",
+  "hypothesis==6.165.10",
+  "mypy==2.3.1",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
   "pytest-cov==7.1.0",
-  "ruff==0.15.21",
+  "ruff==0.16.4",
 ]
 
 [tool.ruff]
