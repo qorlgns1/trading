@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Deterministic trend scoring and portfolio backtesting core"
 requires-python = ">=3.12"
 dependencies = [
-  "duckdb==1.5.4",
+  "duckdb==1.5.5",
   "exchange-calendars>=4.11,<5",
   "numpy>=2.2,<3",
   "polars==1.42.1",
